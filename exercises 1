@@ -1,0 +1,11 @@
+function babylonian(y, ε, x0 = 1.0)
+    root=(x0+y/x0)/2
+    while root - sqrt(y)>ε
+        root=(root+y/root)/2
+        println(root)
+    end    
+end
+
+babylonian(2.0,1e-12)
+
+# exercise 2
