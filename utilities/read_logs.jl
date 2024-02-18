@@ -75,9 +75,11 @@ function get_trials_timing(session)
                 elseif occursin(r"SOUND_TIMER_target", ln)
                     target_audio_end_time = parse(Float64, ln[1:8])
                 elseif (occursin(r"DISPLAY_SCREEN_TRIAL_MouseResponse", ln) && target_audio_end_time <= parse(Float64, ln[1:8]))                    
+                        print("mouse_move 1 ",   mouse_move, "\n")
                         mouse_move+=1
-                elseif occursin(r"UPDATE_ATTRIBUTE_mouse_target", ln)
-                    mouse_end_time = parse(Float64, ln[1:8])
+                        print("mouse_move 2 ",   mouse_move, "\n")
+                    elseif occursin(r"UPDATE_ATTRIBUTE_mouse_target", ln)
+                        mouse_end_time = parse(Float64, ln[1:8])
                     image_clicked = "target"
                 elseif occursin(r"UPDATE_ATTRIBUTE_mouse_competitor", ln)
                     mouse_end_time = parse(Float64, ln[1:8])
@@ -93,6 +95,7 @@ function get_trials_timing(session)
                     push!(Decision_times, (participant, line_num, label,image_clicked, trial_start_time, context_start_time, context_end_time, target_start_time,target_audio_start_time,target_audio_end_time, mouse_move, mouse_start_time, mouse_end_time, question_answer_time, trial_end_time))
                     #print(participant, line_num, label, trial_start_time, context_start_time, context_end_time, target_start_time,target_audio_start_time,target_audio_end_time, mouse_start_time, mouse_end_time, question_answer_time, trial_end_time)
                     trial_num += 1
+                    mouse_move=0
                 else
                     continue
                 end
