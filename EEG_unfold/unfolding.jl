@@ -3,6 +3,7 @@ using Pkg
 Pkg.add("MixedModels")
 Pkg.add("StatsModels")
 
+
 using DataFrames
 using CSV
 using Unfold
@@ -10,16 +11,16 @@ using UnfoldSim
 using StatsModels
 using MixedModels # important to load to activate the UnfoldMixedModelsExtension
 using UnfoldMakie, CairoMakie # plotting
-#using CategoricalArray
+
 
 ## Get the data
 files_root = "/Users/varya/Desktop/Julia/EEG_unfold/2varya/"
 participants = CSV.read(files_root*"fn2varya.csv", DataFrame)
 events = CSV.read(files_root*"events2varya.csv", DataFrame)
 data = leftjoin(participants, events, on=:Time => :latency)
-sample_data, evts = UnfoldSim.predef_eeg()
 
-#First we have to creat subsets for each event model_by_type
+#create a new column with the type of the event:
+#considering the codes below
 # Trigger Codes:
 # S1001-S1240 = Stimuli (Fakten)
 # S500 = response correct = (= "yes" for items 1001-1180 and "no" for 1181-1240)
@@ -33,13 +34,15 @@ sample_data, evts = UnfoldSim.predef_eeg()
 # S254 = blank screen
 # S255 = new Trial
 
-events_MsOrange = 
+face_events = filter(row -> row[:type] in ["S252", "S253"], events)
+face_events.type = ifelse.(face_events.type .== "S252", "MsOrange", "MsBlue")
+
 
 ## Mass Univariate Linear Models (with overlap correction)
-times = range(1000, length=1000, step=1/50)
+times = data.Time
 figure_1 = Figure()
-plot(figure_1[1, 1], data.F7[1:1000], times)
-vlines!(events[events.latency .<= 1000, :latency] ./ 50) # show events, latency in samples!
+plot(times[1:1000], data.F7[1:1000])
+vlines!(current_axis(),face_events[face_events.latency .<= 1000, :latency] ./ 50) # show events, latency in samples!
 figure_1
 
 
@@ -49,14 +52,14 @@ data_r = reshape(data.F7, (1,:))
 #τ specifies the epoch size.
 #sfreq - sampling rate, converts τ to samples.
 
-data_epochs, times = Unfold.epoch(data = data_r, tbl = events, τ = (-0.4, 0.8), sfreq = 50);
+data_epochs, times = Unfold.epoch(data = data_r, tbl = face_events, τ = (-0.5, 1), sfreq = 50);
 size(data_epochs)
 
-basisfunction = firbasis(τ=(-0.4,.8),sfreq=100,name="stimulus")
+basisfunction = firbasis(τ=(-0.5,1),sfreq=100,name="stimulus")
 formula_by_type = @formula 0 ~ 1 + type
 #model_by_type = fit(UnfoldModel, formula_by_type , events, data_epochs, times);
 bfDict = Dict(Any=>(formula_by_type,basisfunction))
-model_by_type = fit(UnfoldModel,bfDict,events,data.F7, eventcolumn="type" );
+model_by_type = fit(UnfoldModel,bfDict,face_events ,data.F7, eventcolumn="type" );
 
 results = coeftable(model_by_type)
 plot_erp(results)
