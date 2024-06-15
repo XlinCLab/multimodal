@@ -14,9 +14,11 @@ using DataFrames
 using CSV
 using JSON
 
-function get_json_timestamp(set, session)
-    root_folder = "/Users/varya/Desktop/Julia/DGAME data/"
-    session_file = joinpath(root_folder, "DGAME3_$set", "$session", "info.player.json")
+function get_json_timestamp(participant, session, root_folder="/Users/varya/Desktop/Julia/DGAME data/")
+    surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
+    surface_session = surface_sessions[session]
+    session_file = joinpath(root_folder, "DGAME3_$participant", "$surface_session", "info.player.json")
+    println(session_file)
     try
         JSON.parsefile(session_file)
     catch e
@@ -25,14 +27,49 @@ function get_json_timestamp(set, session)
     end
     info= JSON.parsefile(session_file)
     start_time_synced_s = info["start_time_synced_s"]
-    return start_time_synced_s
+    duration = info["duration_s"]
+    return (start_time_synced_s, duration)
 end
 
-
-function read_surfaces(participant, session, data_type = "fixations_on_surface")
-        root_folder = "/Users/varya/Desktop/Julia/DGAME data/"
-        participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
+function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder="/Users/varya/Desktop/Julia/DGAME data/")
+    #participant="04_02"  for testing
+    #session="001"  for testing
+    surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])  
+    participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
+    lag_data= DataFrame()
         #/Users/varya/Desktop/Julia/DGAME data/DGAME3_06_01/000/exports/000/surfaces
+    try 
+        CSV.read(joinpath(root_folder,"lag_data.csv"), DataFrame)
+    catch e
+        println("No lag data in file")
+    end 
+    lag_data = CSV.read(joinpath(root_folder,"lag_data.csv"), DataFrame) |>
+            #insert zeroes before single digits, so it fits the number of the set passed to the function         
+            df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) |>
+            df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session) 
+    # Use the map function to apply the dictionary to the session column
+    lag_data.session = map(x -> get(surface_sessions, x, x), lag_data.session)
+    transform!(lag_data, :stream => (x -> ifelse.(x .== "ET_idslexp", "01", ifelse.(x .== "ET_DESKTOP-5B8EI51", "02", x))) => :participant)
+    lag_data.participant = [string(row.set, "_", row.participant) for row in eachrow(lag_data)]
+    
+    if size(lag_data)[1] != 0
+        lag_data = filter(row -> row.participant == participant && row.session == session, lag_data)
+        if size(lag_data)[1] != 0
+            lag_data = select!(lag_data, [:stream, :lag_duration, :lag_timestamp])
+        end
+    else
+        println("No lag data for $participant for this session: $session, times are not aligned ")
+    end
+
+    lag = lag_data.lag_timestamp[1]
+    if  lag < 0
+        println("check timestamps for $participant for this session: $session, negative lag ")
+        return DataFrame()
+    elseif lag > 500
+        println("check timestamps for $participant for this session: $session, huge lag ")        
+        return DataFrame()
+    end
+    # now process fixations
     try
         readdir(participant_folder)
     catch e
@@ -41,7 +78,12 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface")
     end
 
         subfolders = [f for f in readdir(participant_folder) if isdir(joinpath(participant_folder, f))]
-        surface_folder = joinpath(participant_folder, subfolders[1],"surfaces")
+        if subfolders[1]=="surfaces"
+            surface_folder = joinpath(participant_folder, subfolders[1])
+        else
+            surface_folder = joinpath(participant_folder, subfolders[1],"surfaces")
+        end
+    
         surface_files = [file for file in readdir(surface_folder)if occursin(data_type, file)]
 
     try
@@ -72,6 +114,7 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface")
                         surface_df.time_sec = surface_df.gaze_timestamp .- time_zero
                     end
                     filter!(row -> row.on_surf == true, surface_df) 
+                    surface_df.time_sec =  surface_df.time_sec .- lag
                     surface_df.surface = fill(surface, nrow(surface_df))
                     fixations_positions = append!(fixations_positions, surface_df)
         end
@@ -110,10 +153,10 @@ end
 
 #write face visibility
 
-function get_and_reannotate_words(set, session)
+function get_and_reannotate_words(set, session, root_folder="/Users/varya/Desktop/Julia/Roberts ET data/Dyaden_Analyse")    
     conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
     condition = conditions[session]
-    words_folder = joinpath( "/Users/varya/Desktop/Julia/Roberts ET data/Dyaden_Analyse", set,"audio",session)
+    words_folder = joinpath( root_folder, set,"audio",session)
     try
         CSV.read(joinpath(words_folder, "words_$set"*"_$condition.csv"), DataFrame) 
     catch e
@@ -139,13 +182,35 @@ function get_and_reannotate_words(set, session)
 end
 
 
-# get all the fixations close in time to nouns for set 12 session 1
+
 function get_set_fixations_for_nouns(set)
+    #set= "04" #for testing
     words_sessions = ["01", "02", "03","04"]
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
-    fixations_for_set = DataFrame()
+    fixations_for_set = DataFrame(
+        world_timestamp = Float64[],
+        world_index = Int[],
+        fixation_id = Int[],
+        start_timestamp = Float64[],
+        duration = Float64[],
+        dispersion = Float64[],
+        norm_pos_x = Float64[],
+        norm_pos_y = Float64[],
+        x_scaled = Float64[],
+        y_scaled = Float64[],
+        on_surf = Bool[],
+        time_sec = Float64[],
+        surface = String[],
+        participant = String[],
+        session = String[],
+        noun = String[],
+        face = String[],
+        frame_number = Int[],
+        set = String[]
+    )
     nouns_for_set = 0
     for session in words_sessions
+        #session = "02" #for testing
         if size(get_and_reannotate_words(set, session))[1]==0
             println("No data for the words for this session: $session")
             continue
@@ -153,6 +218,7 @@ function get_set_fixations_for_nouns(set)
         nouns = get_and_reannotate_words(set, session)
         surface_session = surface_sessions[session]
         matcher_fixations = read_surfaces("$set"*"_01", surface_session, "fixations_on_surface")
+        #CSV.write("matcher_fixations.csv", matcher_fixations)
         if size(matcher_fixations)[1]==0
             println("No data for the matcher for this session: $session")
             continue
@@ -171,7 +237,7 @@ function get_set_fixations_for_nouns(set)
         println(size(nouns.time_windows)," time windows", " set $set session $session")
         fixations_for_nouns = DataFrame()
         for noun in eachrow(nouns)
-            #println("set $set session $session Noun: ", noun.text)
+            println("set $set session $session Noun: ", noun.text)
             start_time, end_time = noun.time_windows
             fixations_in_window = filter(row -> row.time_sec >= start_time && row.time_sec <= end_time, set_fixations)
             if size(fixations_in_window)[1]==0
@@ -196,7 +262,7 @@ end
 
 function read_timestamps_from_xdf(setting::String, root_folder::String="/Users/varya/Desktop/Julia/DGAME data/xdf")
     sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])
-    director_files = readdir(joinpath(root_folder, setting, "Director"))
+    director_files = readdir(joinpath(root_folder,  setting, "Director"))
     #setting = "04" #for testing
     timestamps = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[])
     #file = director_files[1] #for testing
@@ -234,19 +300,73 @@ function read_timestamps_from_xdf(setting::String, root_folder::String="/Users/v
     return timestamps
 end
 
-function get_all_timestamps_from_xdf(sets, root_folder)
-    timestamps_dir = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[], :diff => Float64[], :duration => Float64[])
+function get_all_timestamps_xdf(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
+    timestamps_xdf = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[], :diff => Float64[], :duration => Float64[])
     for set in sets
-        timestamps_dir = vcat(timestamps_dir,read_timestamps_from_xdf(set))
+        timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set))
     end
-
     # Define a function that converts a float to an integer
     float_to_int(x::Float64) = trunc(Int, x)
-    transform!(timestamps_dir, names(timestamps_dir, Float64) .=> (x -> x .* 1000) .=> names(timestamps_dir, Float64))
+    transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=> (x -> x .* 1000) .=> names(timestamps_xdf, Float64))
     # Apply this function to each float column in the DataFrame
-    transform!(timestamps_dir, names(timestamps_dir, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_dir, Float64))
-
+    transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_xdf, Float64))
     #lot's of data missing for the director
-    CSV.write(joinpath(root_folder, "timestamps.csv"), timestamps_dir)
-    return timestamps_dir
+    CSV.write(joinpath(root_folder, "timestamps_xdf.csv"), timestamps_xdf)
+    return timestamps_xdf
 end
+
+function get_all_timestamps_json(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
+    #now get all timestampd from .json files
+    timestamps_json = DataFrame(:set => String[], :session => String[], :stream => String[], :first_timestamp => Float64[],  :duration => Float64[])
+    for set in sets
+        director = set*"_02"
+        matcher = set*"_01"
+        for session in ["01", "02", "03", "04"]
+            start_time_synced_s_dir = get_json_timestamp(director, session)
+            if start_time_synced_s_dir == Dict()
+                println("No json file for $set for this session: $session")
+                continue
+            else
+                start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
+            end
+            push!(timestamps_json, (set, session,"ET_DESKTOP-5B8EI51", start_time_synced_s_dir, duration_dir))
+            start_time_synced_s_matcher = get_json_timestamp(matcher, session)
+            if start_time_synced_s_matcher == Dict()
+                println("No json file for $set for this session: $session")
+                continue
+            else
+                start_time_synced_s_matcher, duration_matcher = get_json_timestamp(matcher, session)
+            end
+            push!(timestamps_json, (set, session,"ET_idslexp", start_time_synced_s_matcher, duration_matcher))
+        end
+    end
+    float_to_int(x::Float64) = trunc(Int, x)
+    transform!( timestamps_json, names(timestamps_json, Float64) .=> (x -> x .* 1000) .=> names(timestamps_json, Float64))
+    # Apply this function to each float column in the DataFrame
+    transform!( timestamps_json, names( timestamps_json, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_json, Float64))
+    CSV.write(joinpath(root_folder, "timestamps_ET.csv"), timestamps_json)
+    return timestamps_json
+end
+
+function get_lag_ET(reprocess="no",root_folder="/Users/varya/Desktop/Julia/DGAME data")
+    #call the functions to refresf the data
+    if reprocess == "yes"
+        sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
+        get_all_timestamps_xdf(sets)
+        get_all_timestamps_json(sets)
+    end
+        ET_xdf = CSV.read(joinpath(root_folder, "timestamps_xdf.csv"), DataFrame)|>
+        df -> rename!(df, :first_timestamp => :first_timestamp_xdf)|>
+        df -> rename!(df, :duration => :duration_xdf)|>
+        df -> filter!(row -> row.stream != "audio", df)
+
+        json = CSV.read(joinpath(root_folder, "timestamps_ET.csv"), DataFrame)
+
+        lag = innerjoin(ET_xdf, json, on = [:set, :session, :stream]) 
+        transform!(lag, [:first_timestamp_xdf, :first_timestamp] => ByRow((x,y) -> (x - y)/1000) => :lag_timestamp)
+        transform!(lag, [:duration, :duration_xdf] => ByRow((x,y) -> (x - y)/1000) => :lag_duration)
+        
+    CSV.write("/Users/varya/Desktop/Julia/DGAME data/lag_data.csv", lag)   
+    return lag 
+end
+get_lag_ET()

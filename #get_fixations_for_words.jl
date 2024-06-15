@@ -3,21 +3,22 @@
 
 using DataFrames
 using CSV
-include("/Users/varya/Desktop/Julia/Roberts ET data/functions.jl")
+include("/Users/varya/Desktop/Julia/functions.jl")
 
 sets = ["04", "05", "06", "07", "08","09", "10", "11", "12"]
 # Open a log file for writing
 log_file = open("combine_fixations_by_nouns.log", "w")
 
 # Redirect stdout to the log file
-redirect_stdout(log_file)
-@info "This is the log file of the processing of the fixations by nouns, you can find all the missing values and errors here"
-# get all the fixations for all participants I have
-all_fixations = DataFrame()
-for set in sets
-    println("set $set")
-    fixations = get_set_fixations_for_nouns(set)
-    all_fixations = vcat(all_fixations, fixations)
+redirect_stdout(log_file) do
+    @info "This is the log file of the processing of the fixations by nouns, you can find all the missing values and errors here"
+    # get all the fixations for all participants I have
+    all_fixations = DataFrame()
+    for set in sets
+        println("set $set")
+        fixations = get_set_fixations_for_nouns(set)
+        all_fixations = vcat(all_fixations, fixations)
+    end
 end
 close(log_file)
 # Redirect back to the console
