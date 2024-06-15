@@ -5,6 +5,16 @@
 # Pkg.add("EzXML")
 # Pkg.add("XMLDict")
 #Pkg.add("JSON")
+#Pkg.add("LinearAlgebra")
+#Pkg.add("TextParse")
+#Pkg.add("PrettyTables")
+#Pkg.add("MsgPack")
+
+function read_intrinsics(file_path)
+    binary_content = read_binary_file(file_path)
+    data = MsgPack.unpack(binary_content)
+    return data
+end
 using Printf
 Base.show(io::IO, f::Float64) = @printf(io, "%.2f", f)
 using XDF
@@ -13,6 +23,8 @@ using XMLDict
 using DataFrames
 using CSV
 using JSON
+using LinearAlgebra
+using TextParse
 
 function get_json_timestamp(participant, session, root_folder="/Users/varya/Desktop/Julia/DGAME data/")
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
@@ -97,9 +109,11 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
         if data_type == "fixations_on_surface"
             time_zero = fixations_positions.start_timestamp[1]
             fixations_positions.time_sec = fixations_positions.start_timestamp .- time_zero
+            fixations_positions.time_corrected =  fixations_positions.start_timestamp  .- lag_zero
         else
             time_zero = fixations_positions.gaze_timestamp[1]
             fixations_positions.time_sec = fixations_positions.gaze_timestamp .- time_zero
+            fixations_positions.time_corrected =  fixations_positions.gaze_timestamp .- lag_zero
         end
         fixations_positions.surface = fill("face", nrow(fixations_positions))
 
@@ -109,18 +123,24 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
                     if data_type == "fixations_on_surface"
                         time_zero = surface_df.start_timestamp[1]
                         surface_df.time_sec = surface_df.start_timestamp .- time_zero
+                        surface_df.time_corrected =  surface_df.start_timestamp .- lag_zero
                     else
                         time_zero = surface_df.gaze_timestamp[1]
                         surface_df.time_sec = surface_df.gaze_timestamp .- time_zero
+                        surface_df.time_corrected =  surface_df.gaze_timestamp .- lag_zero
                     end
                     filter!(row -> row.on_surf == true, surface_df) 
                     surface_df.time_sec =  surface_df.time_sec .- lag
                     surface_df.surface = fill(surface, nrow(surface_df))
                     fixations_positions = append!(fixations_positions, surface_df)
         end
+        #names(fixations_positions)
+        normal_sessions = Dict("000" => "01", "001" => "02", "002" => "03", "003" => "04")
+        normal_session= normal_sessions[session]
         fixations_positions.participant = fill(participant, nrow(fixations_positions))
-        fixations_positions.session = fill(session, nrow(fixations_positions))
-
+        fixations_positions.session = fill(normal_session, nrow(fixations_positions))
+        fixations_positions.lag = fill(lag, nrow(fixations_positions))
+        #CSV.write("fixations_positions_12_03.csv", fixations_positions)
         return fixations_positions
 end
 
@@ -139,16 +159,16 @@ end
 
 
 function get_joint_attention_gaze_positions(set, session)
-    director = set*"_02"
-    matcher = set*"_01"
-director_gps = read_surfaces(director, session, "gaze_positions_on_surface") |>
-                    df -> select!(df, [ :time_sec, :world_index, :surface,  :gaze_timestamp])|>
-                    df -> rename!(df,  :time_sec => :time_sec_director, :gaze_timestamp => :gaze_timestamp_director)
-matcher_gps = read_surfaces(matcher, session, "gaze_positions_on_surface") |>
-                    df -> select!(df, [ :time_sec, :world_index, :surface,  :gaze_timestamp])
-#world index is the number of the closest video DataFrame
-joint_attention = innerjoin(matcher_gps,director_gps, on = [:world_index, :surface] )
-return joint_attention
+        director = set*"_02"
+        matcher = set*"_01"
+    director_gps = read_surfaces(director, session, "gaze_positions_on_surface") |>
+                        df -> select!(df, [ :time_sec, :world_index, :surface,  :gaze_timestamp])|>
+                        df -> rename!(df,  :time_sec => :time_sec_director, :gaze_timestamp => :gaze_timestamp_director)
+    matcher_gps = read_surfaces(matcher, session, "gaze_positions_on_surface") |>
+                        df -> select!(df, [ :time_sec, :world_index, :surface,  :gaze_timestamp])
+    #world index is the number of the closest video DataFrame
+    joint_attention = innerjoin(matcher_gps,director_gps, on = [:world_index, :surface] )
+    return joint_attention
 end
 
 #write face visibility
@@ -231,15 +251,39 @@ function get_set_fixations_for_nouns(set)
         else
             set_fixations = vcat(matcher_fixations, director_fixations)
         end
+        #CSV.write("set_fixations.csv", set_fixations)
         # find all fixations that are -1 sec from the noun and up to +2 sec from the noun
         nouns_for_set += size(nouns)[1]
-        nouns.time_windows = [(noun.time - 1, noun.time + 2) for noun in eachrow(nouns)]
+        #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
+        # even 0.5 seconds is too much
+        nouns.time_windows = [(noun.time - 0.2, noun.time + 0.5) for noun in eachrow(nouns)]
         println(size(nouns.time_windows)," time windows", " set $set session $session")
-        fixations_for_nouns = DataFrame()
+        fixations_for_nouns = DataFrame(
+            world_timestamp = Float64[],
+            world_index = Int[],
+            fixation_id = Int[],
+            start_timestamp = Float64[],
+            duration = Float64[],
+            dispersion = Float64[],
+            norm_pos_x = Float64[],
+            norm_pos_y = Float64[],
+            x_scaled = Float64[],
+            y_scaled = Float64[],
+            on_surf = Bool[],
+            time_sec = Float64[],
+            time_corrected = Float64[],
+            lag = Float64[],
+            surface = String[],
+            participant = String[],
+            session = String[],
+            noun = String[],
+            face = String[],
+            frame_number = Int[]
+        )
         for noun in eachrow(nouns)
             println("set $set session $session Noun: ", noun.text)
             start_time, end_time = noun.time_windows
-            fixations_in_window = filter(row -> row.time_sec >= start_time && row.time_sec <= end_time, set_fixations)
+            fixations_in_window = filter(row -> row.time_corrected >= start_time && row.time_corrected <= end_time, set_fixations)
             if size(fixations_in_window)[1]==0
                 println("No fixations in the period, only gazes: start $start_time end $end_time")
                 nouns_for_set -= 1
@@ -254,6 +298,7 @@ function get_set_fixations_for_nouns(set)
         end
         fixations_for_nouns.set = fill(set, nrow( fixations_for_nouns))
         fixations_for_set = vcat(fixations_for_set, fixations_for_nouns)
+        #CSV.write("fixations_for_nouns.csv", fixations_for_nouns)
     end
     println("Nouns for set $set: ", nouns_for_set)
         return  fixations_for_set
