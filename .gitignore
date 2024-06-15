@@ -6,7 +6,8 @@
 *.p*
 *.r*
 *.m*
-*.j*
+*.js*
+*.jp*
 *.x*
 *.n*
 *.i*
@@ -16,4 +17,7 @@
 *surface_definitions*
 *.z*
 .DS*
-
+*.w*
+*.o*
+*.a*
+*.d*
