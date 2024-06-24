@@ -229,7 +229,8 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
             frame_number = Int[],
             set = String[],
             time_corrected = Float64[],
-            lag = Float64[]
+            lag = Float64[],
+            noun_time = Float64[]
         )
     elseif data_type == "gaze_positions_on_surface"
         fixations_for_set = DataFrame(
@@ -251,7 +252,8 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
             frame_number = Int[],
             set = String[],
             time_corrected = Float64[],
-            lag = Float64[]
+            lag = Float64[],
+            noun_time = Float64[]
         )
     else
         println("wrong data type, choose fixations_on_surface or gaze_positions_on_surface")
@@ -313,6 +315,7 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
             frame_number = minimum(fixations_in_window[!, :world_index])
             fixations_in_window.frame_number = fill(frame_number,nrow(fixations_in_window))
             fixations_in_window.set = fill(set, nrow(fixations_in_window))
+            fixations_in_window.noun_time = fill(noun.time, nrow(fixations_in_window))
             fixations_for_nouns = vcat(fixations_for_nouns, fixations_in_window)
         end
         #fixations_for_nouns.set = fill(set, nrow( fixations_for_nouns))
