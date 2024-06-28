@@ -2,6 +2,8 @@
 
 This is a collection of scripts in Julia to preprocess the multimodal data collected using Lab Streaming Layer. `Functions.jl` contains a collection of Julia functions designed for processing eye-tracking data, handling various data formats, and performing transformations. These functions are particularly tailored for working with data from the DGAME project.
 
+In the last month the priority was to get everything to work, so I apologize for the lack of documentation. I am planning to get everything nicely documentd in the nearest time.
+
 ## Installation
 
 To use the functions in this repository, ensure you have the following Julia packages installed:
