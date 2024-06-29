@@ -27,3 +27,20 @@ end
 
 participant = "04_01"
 session = "003"
+
+function get_all_matrices_by_frames(frames)
+
+end
+
+function check_april_tags_for_frames(frames)
+if isempty(frames)
+    frames = CSV.read("/Users/varya/Desktop/Julia/Roberts ET data/surface_frames.csv", DataFrame) |>
+    df -> transform!(df, :surface => ByRow(string) => :surface) |>
+    df -> transform!(df, :participant => ByRow(x-> x[1:2]) => :set) |>
+    df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session) 
+end
+    for frame in eachrow(frames)
+        surfaces_folder = replace(frame.video_path, "world.mp4" => "")
+        surfaces_folder = surfaces_folder*"exports/"
+    end
+end

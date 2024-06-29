@@ -8,103 +8,13 @@
 #aggregate them together
 # check if the object coordinates are within the surface coordinates
 # if they are, assign this surface to the object
-
+using CairoMakie
+using Makie.GeometryBasics
 using DataFrames
 using CSV
 using TextParse
+include("/Users/varya/Desktop/Julia/functions.jl")
 
-
-
-function get_all_surface_coordinates_for_frames(frames=DataFrame())
-    root_folder="/Users/varya/Desktop/Julia/"
-    if isempty(frames)
-        frames=CSV.read(joinpath(root_folder,"frame_numbers_with_tokens.csv"), DataFrame) 
-        println("frames read from file")
-    end
-    frames_sets_and_sessions =  select(frames, [:participant, :session, :frame_number]) |> unique 
-    sets_and_sessions = select(frames_sets_and_sessions, [:participant, :session]) |> unique
-    surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])  
-    all_surface_coordinates = DataFrame(
-        world_index = Int[],
-        world_timestamp = Float64[],
-        img_to_surf_trans = Float64[],
-        surf_to_img_trans = Float64[],
-        num_detected_markers = Int[],
-        dist_img_to_surf_trans = Float64[],
-        surf_to_dist_img_trans = Float64[],
-        num_definition_markers = Int[],
-        surface = String[],
-        set=String[],
-        session=String[]
-    )
-
-    for row in eachrow(sets_and_sessions)
-        #row = eachrow(sets_and_sessions)[1]
-        participant = row.participant
-        set=participant[1:2]
-        session = row.session
-        surface_session = surface_sessions[lpad(row.session,2,"0")]
-        filtered = filter(row -> row.participant == participant && row.session == session, frames_sets_and_sessions)
-        frame_numbers = filtered.frame_number
-        surface_coordinates = get_surface_coordinates(participant,surface_session,frame_numbers)
-        surface_coordinates.set = fill(set, nrow(surface_coordinates))
-        surface_coordinates.session = fill(session, nrow(surface_coordinates))
-        all_surface_coordinates = vcat(all_surface_coordinates, surface_coordinates)
-    end
-    CSV.write("all_surface_coordinates.csv", all_surface_coordinates)
-    #test_coords=get_surface_coordinates("12_01", "003", [100,200,6888])
-end
-
-function get_surface_coordinates(participant,session,framenumbers, root_folder="/Users/varya/Desktop/Julia/DGame data")
-    #CSV.read cannot parse nested lists of coordinates
-    #!NB this function does not return set and session
-    data_type = "surf_positions"
-    participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
-    try
-        readdir(participant_folder)
-    catch e
-        println("No data for $participant for this session: $session")
-        println(e)
-        return DataFrame()
-    end
-    subfolders = [f for f in readdir(participant_folder) if isdir(joinpath(participant_folder, f))]
-    if subfolders[1]=="surfaces"
-        surface_folder = joinpath(participant_folder, subfolders[1])
-    else
-        surface_folder = joinpath(participant_folder, subfolders[1],"surfaces")
-    end
-    surface_files = [file for file in readdir(surface_folder)if occursin(data_type, file)]
-    try
-        data, names = TextParse.csvread(joinpath(surface_folder, "$data_type"*"_face.csv"))
-    catch e
-        println("No surface coordinates data for $participant for this session: $session")
-        println(joinpath(surface_folder, "$data_type"*"_face.csv"))
-        return DataFrame()
-    end
-    surface_coordinates = DataFrame(
-        world_index = Int[],
-        world_timestamp = Float64[],
-        img_to_surf_trans = Float64[],
-        surf_to_img_trans = Float64[],
-        num_detected_markers = Int[],
-        dist_img_to_surf_trans = Float64[],
-        surf_to_dist_img_trans = Float64[],
-        num_definition_markers = Int[],
-        surface = String[]
-    )
-    for file in surface_files
-        surface = split(file, "_")[end] |> x -> split(x, ".")[1]
-        data, names = TextParse.csvread(joinpath(surface_folder, file))
-        surface_df =  DataFrame()
-        for (i, name) in enumerate(names)
-            surface_df[!, Symbol(name)] = data[i]
-        end
-        filter!(row -> row.world_index in framenumbers, surface_df)
-        surface_df.surface = fill(surface, nrow(surface_df))
-        surface_coordinates = vcat(surface_coordinates, surface_df)
-    end
-    return surface_coordinates
-end
     # Load the CSV file with TextParse, CSV.read cannot parse it
 
 #Not sure it works properly, check
@@ -144,14 +54,14 @@ end
 
 function yolo_to_pixel_center(x, y, img_width, img_height)
     x_pixel = x * img_width
-    y_pixel = (1 - y) * img_height
+    y_pixel = y * img_height
     return x_pixel, y_pixel
 end
 
 function yolo_to_normalized_ET(x, y)
     #x,y = 0.38, 0.58
-    x_norm = x -0.5
-    y_norm= (1 - y) -0.5
+    x_norm = x - 0.5
+    y_norm= y - 0.5
     return x_norm, y_norm
 end
 
@@ -166,8 +76,8 @@ end
 function transform_surface_to_image_coordinates(x, y, transform_matrix)
     pos_homogenous = [x, y, 1] # Add homogenous coordinate
     #it looks like transposition brings image coorinate, non-transposed matrix brings normalized image coordinates
-    #result_homogenous =  transpose(transform_matrix) * pos_homogenous # Actual transform
-    result_homogenous =  transform_matrix * pos_homogenous # Actual transform
+    result_homogenous =  transpose(transform_matrix) * pos_homogenous # Actual transform
+    #result_homogenous =  transform_matrix * pos_homogenous # Actual transform
     result_homogenous .= result_homogenous ./ result_homogenous[end]  # normalize
     new_pos = result_homogenous[1:end-1]  # projection
     return new_pos[1], new_pos[2]
@@ -185,43 +95,14 @@ function parse_transformation_matrix(matrix_str)
     return reshape(parse.(Float64, number_strs), 3, 3)
 end
 
-function get_all_yolo_coordinates(labels_folder)
- labels_folder = "/Users/varya/Desktop/Python/yoloo/yolo7Test/data/results/output/labels"
- object_names=Dict([(0,"batterie"), (1,"blume"), (2,"creme"), (3,"kerze") ,(4, "spritze"), (5,"tasse"),(6,"tube"), (7,"vase")])
-    all_yolo_coordinates = DataFrame(
-        frame_number = Int[],
-        set = String[],
-        session = String[],
-        object = String[],
-        x = Float64[],
-        y = Float64[],
-        w = Float64[],
-        h = Float64[]
-    )
-    for file in readdir(labels_folder)
-        if occursin(".txt", file)
-            frame_number = parse(Int, split(file, "_")[end] |> x -> split(x, ".")[1])
-            data = readlines(joinpath(labels_folder, file))
-            for line in data
-                object = split(line, " ")[1]
-                set=split(file, "_")[1]
-                if length(split(file, "_"))>2
-                    session=string(split(file, "_")[3][1])
-                else
-                    session="0"
-                end
-                object = object_names[parse(Int, object)]
-                x = parse(Float64, split(line, " ")[2])
-                y = parse(Float64, split(line, " ")[3])
-                w = parse(Float64, split(line, " ")[4])
-                h = parse(Float64, split(line, " ")[5])
-                push!(all_yolo_coordinates, (frame_number,set,session, object, x, y, w, h))
-            end
-        end
-    end
-    CSV.write("all_yolo_coordinates.csv", all_yolo_coordinates)
-    return all_yolo_coordinates
-
+function pixel_center_and_flip(x, y, img_width, img_height)
+    # Assuming x and y are in pixel center coordinates
+    # Flip horizontally
+    new_x = img_width - x - 1
+    # Flip vertically
+    new_y = img_height - y - 1
+    
+    return x, new_y
 end
 
 function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFrame(), root_folder="/Users/varya/Desktop/Julia/", frames=DataFrame())
@@ -232,10 +113,10 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFr
     end
 
     if isempty(surface_positions)
-        data, names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_coordinates.csv")
+        data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
         surface_positions =  DataFrame()
-        for (i, name) in enumerate(names)
-            surface_positions[!, Symbol(name)] = data[i]
+        for (i, surf_name) in enumerate(surf_names)
+            surface_positions[!, Symbol(surf_name)] = data[i]
         end
     end
     if isempty(yolo_coordinates)
@@ -244,13 +125,13 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFr
     end
 
 
-    set_surface_positions = filter(row -> row[:set] == 6 && row[:session] == 4, surface_positions)
+    set_surface_positions = filter(row -> row[:set] == 12 && row[:session] == 4, surface_positions)
     #CSV.write("set_surface_positions12.csv", set_surface_positions)
-    set_yolo_coordinates = filter(row -> row[:set] == 6 && row[:session] == 4, yolo_coordinates)
+    set_yolo_coordinates = filter(row -> row[:set] == 12 && row[:session] == 4, yolo_coordinates)
     #12_01_4vase_8078
     #06_01_4spritze_7748
 
-    frame_objects = filter(row -> row[:frame_number] == 7748, set_yolo_coordinates)
+    frame_objects = filter(row -> row[:frame_number] == 8048, set_yolo_coordinates)
     for object in eachrow(frame_objects)
         #object = eachrow(frame_objects)[1]
         object_name = object.object
@@ -267,4 +148,88 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFr
 
 end
 
-yolo_coordinates = get_all_yolo_coordinates("/Users/varya/Desktop/Python/yoloo/yolo7Test/data/results/output/labels")
+
+function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write_to_file=false)
+    #this function is work in progress
+    img_width = 1920
+    img_height = 1080
+
+    # Select the relevant row based on world_index (frame number)
+    frame_surfaces = set_surface_positions[set_surface_positions.world_index .== frame_number, :]
+    surface_coords = Dict()
+    for surface in eachrow(frame_surfaces)
+        #surface = eachrow(frame_surfaces)[1]
+        println("checking surface: $(surface.surface)")
+        # Extract the transformation matrix
+        transform_matrix=parse_transformation_matrix(surface.surf_to_dist_img_trans)
+        corners = [(0.0, 0.0), (1.0,0.0), (0.0, 1.0), (0.0, 0.0)]
+        corners_coords = []
+        for corner in corners
+            x, y = corner
+            pixel_x, pixel_y =  transform_surface_to_image_coordinates(x, y, transform_matrix)
+            push!(corners_coords, (pixel_x, pixel_y))
+        end
+        surface_coords[surface.surface] = corners_coords
+    end
+    if write_to_file
+        CSV.write("surface_coords_$frame_number.csv", surface_coords)
+    end
+    return surface_coords
+end
+
+function normalize_coordinates(x, y, img_width, img_height)
+    x_norm = x / img_width
+    y_norm = y / img_height
+    return x_norm, y_norm
+end
+
+
+function plot_surfaces(surface_coordinates)
+    # Create a figure and axis for plotting with specified resolution
+    fig = Figure(resolution = (1920, 1080))
+    ax = Axis(fig[1, 1])
+    xlims!(ax, 0, 1920)
+    ylims!(ax, 0, 1080)
+    # Plot each surface
+    for surface in values(surface_coordinates)
+        println("Plotting surface: $(surface)")
+        # Extracting the first two elements from each 4-element tuple and converting to Point2f
+        preprocessed_coords = [(x[1], x[2]) for x in surface]
+        poly!(ax, Point2f.(preprocessed_coords), color = :white, strokecolor = :black, strokewidth = 1)
+    end
+    # Adjust limits if necessary
+
+    # Display the figure
+    display(fig)
+end
+
+# Example usage with dummy data
+# Each surface is defined by its corners (x, y) in a clockwise or counterclockwise order
+
+
+plot_surfaces(flipped_surface_coordinates)
+
+surface_coordinates= get_all_surfaces_for_a_frame(8078, set_surface_positions, true)
+flipped_surface_coordinates = Dict()
+for (name,surface) in surface_coordinates
+    #name,surface = surface_coordinates["21"]
+    flipped_surface=[]
+    for corner in values(surface)
+        x, y = corner
+        x_pixel, y_pixel =  pixel_center_and_flip(x, y, 1920, 1080)
+        push!(flipped_surface, (x_pixel, y_pixel))
+    end
+    flipped_surface_coordinates[name] = flipped_surface
+end
+
+
+camera_coeff = read_intrinsics("/Users/varya/Desktop/Julia/DGAME data/DGAME3_12_01/002/world.intrinsics")["(1920, 1080)"]
+dist_coefs = camera_coeff["dist_coefs"]
+camera_matrix = camera_coeff["camera_matrix"]
+resolution = camera_coeff["resolution"][1]
+#same resolution, just in 8x system
+Int(camera_coeff["resolution"][1])
+
+
+using CxxWrap
+CxxWrap.CxxWrapCore.prefix_path()

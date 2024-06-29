@@ -39,5 +39,5 @@ for row in eachrow(frame_numbers)
     row.video_path = joinpath(root_folder, "DGAME3_"*row.participant, session , "world.mp4")
 end
 frame_numbers= get_tokens_for_nouns(frame_numbers)
-CSV.write("frame_numbers_with_tokens.csv", frame_numbers)
-CSV.write("all_fixations.csv", all_fixations)
+CSV.write("frame_numbers_with_tokens_test.csv", frame_numbers)
+CSV.write("all_fixations_test.csv", all_fixations)

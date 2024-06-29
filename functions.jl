@@ -327,7 +327,10 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
 end
 
 
-function read_timestamps_from_xdf(setting::String, root_folder::String="/Users/varya/Desktop/Julia/DGAME data/xdf")
+function read_timestamps_from_xdf(setting::String, root_folder::String="")
+    if root_folder==""
+        root_folder="/Users/varya/Desktop/Julia/DGAME data/xdf"
+    end
     sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])
     director_files = readdir(joinpath(root_folder,  setting, "Director"))
     #setting = "04" #for testing
@@ -519,6 +522,7 @@ end
 function get_surface_matrices(participant,session,framenumbers, root_folder="/Users/varya/Desktop/Julia/DGame data")
     #CSV.read cannot parse nested lists of coordinates
     #!NB this function does not return set and session
+    #NB! this function does not check for markers detected
     data_type = "surf_positions"
     participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
     try
@@ -566,7 +570,6 @@ function get_surface_matrices(participant,session,framenumbers, root_folder="/Us
     end
     return surface_coordinates
 end
-
 
 function parse_transformation_matrix(matrix_str)
     # Remove brackets and commas, then split by spaces
