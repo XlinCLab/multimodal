@@ -49,7 +49,7 @@ for set in sets
     all_gazes = vcat(all_gazes, gazes)
     all_fixations = vcat(all_fixations, fixations)
 end   
-     
+
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_gazes.csv", all_gazes)
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations.csv", all_fixations)
 

@@ -94,13 +94,10 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
         end
     
         surface_files = [file for file in readdir(surface_folder)if occursin(data_type, file)]
-
-    try
-        CSV.read(joinpath(surface_folder, "$data_type"*"_face.csv"), DataFrame)
-    catch
-        println("No fixation data for $participant for this session: $session")
-        return DataFrame()
-    end
+        if size(surface_files)[1]==0
+            println("No data for $participant for this session: $session")
+            return DataFrame()
+        end
         fixations_positions = CSV.read(joinpath(surface_folder, "$data_type"*"_face.csv"), DataFrame)
         filter!(row -> row.on_surf == true, fixations_positions)
         if data_type == "fixations_on_surface"
@@ -137,7 +134,8 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
         fixations_positions.participant = fill(participant, nrow(fixations_positions))
         fixations_positions.session = fill(normal_session, nrow(fixations_positions))
         fixations_positions.lag = fill(lag, nrow(fixations_positions))
-        #CSV.write("fixations_positions_12_03.csv", fixations_positions)
+        n_of_fixations = size(fixations_positions)[1]
+        println("Data for $participant for this session: $n_of_fixations fixations ($data_type)")
         return fixations_positions
 end
 
@@ -172,12 +170,12 @@ end
 
 function get_and_reannotate_words(set, session, root_folder="")    
     if root_folder==""
-        root_folder="/Users/varya/Desktop/Julia/Roberts ET data/Dyaden_Analyse"
+        root_folder="/Users/varya/Desktop/Julia/DGAME data/AUDIO"
     end
 
     conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
     condition = conditions[session]
-    words_folder = joinpath( root_folder, set,"audio",session)
+    words_folder = joinpath( root_folder, set,"Wortlisten")
     try
         CSV.read(joinpath(words_folder, "words_$set"*"_$condition.csv"), DataFrame) 
     catch e
@@ -265,11 +263,12 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
     nouns_for_set = 0
     for session in words_sessions
         #session = "02" #for testing
-        if size(get_and_reannotate_words(set, session))[1]==0
+        nouns = get_and_reannotate_words(set, session)
+        if size(nouns)[1]==0
             println("No data for the words for this session: $session")
             continue
         end
-        nouns = get_and_reannotate_words(set, session)
+        
         surface_session = surface_sessions[session]
         if data_type == "fixations_on_surface"
             matcher_fixations = read_surfaces("$set"*"_01", surface_session, "fixations_on_surface")
@@ -295,32 +294,41 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
         # find all fixations that are -1 sec from the noun and up to +2 sec from the noun
         nouns_for_set += size(nouns)[1]
         #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
-        # even 0.5 seconds is too much
-        nouns.time_windows = [(noun.time - 0.2, noun.time + 0.5) for noun in eachrow(nouns)]
+        nouns.time_windows = [(noun.time - 0.2, noun.time + 1) for noun in eachrow(nouns)]
         println(size(nouns.time_windows)," time windows", " set $set session $session")
         #set fixations for nouns as an empty dataset of the same structure
         fixations_for_nouns = fixations_for_set
         for noun in eachrow(nouns)
-            println("set $set session $session Noun: ", noun.text)
             start_time, end_time = noun.time_windows
             fixations_in_window = filter(row -> row.time_corrected >= start_time && row.time_corrected <= end_time, set_fixations)
             if size(fixations_in_window)[1]==0
                 println("No fixations in the period: start $start_time end $end_time")
                 nouns_for_set -= 1
                 continue
+            else 
+                println("Fixations in the period: start $start_time end $end_time")
+                println(size(fixations_in_window))
             end
             #noun onset and face visibility and the frame number for the minimum time of the tuple
             fixations_in_window.noun = fill(noun.text, nrow(fixations_in_window))
             fixations_in_window.face = fill(noun.face, nrow(fixations_in_window))
-            frame_number = minimum(fixations_in_window[!, :world_index])
-            fixations_in_window.frame_number = fill(frame_number,nrow(fixations_in_window))
             fixations_in_window.set = fill(set, nrow(fixations_in_window))
             fixations_in_window.noun_time = fill(noun.time, nrow(fixations_in_window))
+            # this is a hack for Robert's data, where the frame number is the world index of -200 
+            #delete later
+            subset = filter(row -> row.noun_time - row.time_corrected >= -0.2, fixations_in_window)
+            if size(subset)[1]==0
+                println("No fixations in the period: - 0.2 to $end_time")
+                nouns_for_set -= 1
+                continue
+            end
+            frame_number = minimum(subset[!, :world_index])
+            fixations_in_window.frame_number = fill(frame_number,nrow(fixations_in_window))
             fixations_for_nouns = vcat(fixations_for_nouns, fixations_in_window)
         end
-        #fixations_for_nouns.set = fill(set, nrow( fixations_for_nouns))
         fixations_for_set = vcat(fixations_for_set, fixations_for_nouns)
-        #CSV.write("fixations_for_nouns.csv", fixations_for_nouns)
+        println("Fixations in the session:")
+        println(size(fixations_for_set))
     end
     println("Nouns for set $set: ", nouns_for_set)
         return  fixations_for_set
