@@ -305,29 +305,18 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
                 println("No fixations in the period: start $start_time end $end_time")
                 nouns_for_set -= 1
                 continue
-            else 
-                println("Fixations in the period: start $start_time end $end_time")
-                println(size(fixations_in_window))
             end
             #noun onset and face visibility and the frame number for the minimum time of the tuple
             fixations_in_window.noun = fill(noun.text, nrow(fixations_in_window))
             fixations_in_window.face = fill(noun.face, nrow(fixations_in_window))
             fixations_in_window.set = fill(set, nrow(fixations_in_window))
             fixations_in_window.noun_time = fill(noun.time, nrow(fixations_in_window))
-            # this is a hack for Robert's data, where the frame number is the world index of -200 
-            #delete later
-            subset = filter(row -> row.noun_time - row.time_corrected >= -0.2, fixations_in_window)
-            if size(subset)[1]==0
-                println("No fixations in the period: - 0.2 to $end_time")
-                nouns_for_set -= 1
-                continue
-            end
-            frame_number = minimum(subset[!, :world_index])
+            frame_number = minimum(fixations_in_window[!, :world_index])
             fixations_in_window.frame_number = fill(frame_number,nrow(fixations_in_window))
             fixations_for_nouns = vcat(fixations_for_nouns, fixations_in_window)
         end
         fixations_for_set = vcat(fixations_for_set, fixations_for_nouns)
-        println("Fixations in the session:")
+        println("Fixations in the session $session:")
         println(size(fixations_for_set))
     end
     println("Nouns for set $set: ", nouns_for_set)

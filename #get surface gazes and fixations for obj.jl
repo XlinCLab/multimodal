@@ -53,10 +53,10 @@ end
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_gazes.csv", all_gazes)
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations.csv", all_fixations)
 
+
 function check_april_tags_for_frames(frames)
 if isempty(frames)
-    frames = CSV.read("/Users/varya/Desktop/Julia/Roberts ET data/surface_frames.csv", DataFrame) |>
-    df -> transform!(df, :surface => ByRow(string) => :surface) |>
+    frames = CSV.read("/Users/varya/Desktop/Julia/frame_numbers_with_tokens.csv", DataFrame) |>
     df -> transform!(df, :participant => ByRow(x-> x[1:2]) => :set) |>
     df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session) 
 end
