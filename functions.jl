@@ -294,24 +294,29 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
         # find all fixations that are -1 sec from the noun and up to +2 sec from the noun
         nouns_for_set += size(nouns)[1]
         #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
-        nouns.time_windows = [(noun.time - 0.2, noun.time + 1) for noun in eachrow(nouns)]
+        nouns.time_windows = [(noun.time - 1, noun.time - 0.2, noun.time + 1) for noun in eachrow(nouns)]
         println(size(nouns.time_windows)," time windows", " set $set session $session")
         #set fixations for nouns as an empty dataset of the same structure
         fixations_for_nouns = fixations_for_set
         for noun in eachrow(nouns)
-            start_time, end_time = noun.time_windows
-            fixations_in_window = filter(row -> row.time_corrected >= start_time && row.time_corrected <= end_time, set_fixations)
+            start_time, frame_time, end_time = noun.time_windows
+
+            #this is an adaptation for Robert's thesis, delete later
+            #println("Noun: ", noun.text, " time: ", noun.time, "start_time: ", start_time, "end_time: ", end_time)
+            fixations_in_window = filter(row -> row.time_corrected >= frame_time && row.time_corrected <= end_time, set_fixations)
             if size(fixations_in_window)[1]==0
-                println("No fixations in the period: start $start_time end $end_time")
+                println("No fixations in the period: frame_time $frame_time end $end_time")
                 nouns_for_set -= 1
                 continue
             end
+            frame_number = minimum(fixations_in_window[!, :world_index])
+            println("Frame number: ", frame_number)
+            fixations_in_window = filter(row -> row.time_corrected >= start_time && row.time_corrected <= end_time, set_fixations)            
             #noun onset and face visibility and the frame number for the minimum time of the tuple
             fixations_in_window.noun = fill(noun.text, nrow(fixations_in_window))
             fixations_in_window.face = fill(noun.face, nrow(fixations_in_window))
             fixations_in_window.set = fill(set, nrow(fixations_in_window))
             fixations_in_window.noun_time = fill(noun.time, nrow(fixations_in_window))
-            frame_number = minimum(fixations_in_window[!, :world_index])
             fixations_in_window.frame_number = fill(frame_number,nrow(fixations_in_window))
             fixations_for_nouns = vcat(fixations_for_nouns, fixations_in_window)
         end

@@ -32,7 +32,20 @@ function get_gazes_and_fixations_by_frame_and_surface(set, surfaces_file)
 
     return gazes, fixations
 end
-#set = "04"
+
+function get_all_gazes_and_fixations_by_frame(sets)
+    all_gazes = DataFrame()
+    all_fixations = DataFrame()
+    for set in sets
+        fixations = get_set_fixations_for_nouns(set)
+        gazes = get_set_fixations_for_nouns(set, "","gaze_positions_on_surface")
+        all_gazes = vcat(all_gazes, gazes)
+        all_fixations = vcat(all_fixations, fixations)
+    end
+    return all_gazes, all_fixations
+end
+
+
 sets = ["04", "05", "06", "07", "08", "09", "10", "11", "12"]
 surfaces_file= CSV.read("/Users/varya/Desktop/Julia/Roberts ET data/surface_frames.csv", DataFrame)  |>
 df -> transform!(df, :token => ByRow(lowercase) => :token) |>
@@ -50,8 +63,14 @@ for set in sets
     all_fixations = vcat(all_fixations, fixations)
 end   
 
-CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_gazes.csv", all_gazes)
-CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations.csv", all_fixations)
+CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_gazes_1sec.csv", all_gazes)
+CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations_1sec.csv", all_fixations)
+
+#set="08"
+
+all_surfaces_gazes, all_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
+CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_surfaces_gazes_1sec.csv", all_surfaces_gazes)
+CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_surfaces_fixations_1sec.csv", all_surfaces_fixations)
 
 
 function check_april_tags_for_frames(frames)
