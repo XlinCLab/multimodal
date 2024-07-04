@@ -42,6 +42,8 @@ function get_all_gazes_and_fixations_by_frame(sets)
         all_gazes = vcat(all_gazes, gazes)
         all_fixations = vcat(all_fixations, fixations)
     end
+    all_fixations.trial_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(all_fixations)]
+    all_gazes.trial_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(all_gazes)]
     return all_gazes, all_fixations
 end
 
@@ -62,6 +64,8 @@ for set in sets
     all_gazes = vcat(all_gazes, gazes)
     all_fixations = vcat(all_fixations, fixations)
 end   
+
+
 
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_gazes_1sec.csv", all_gazes)
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations_1sec.csv", all_fixations)

@@ -84,6 +84,17 @@ function transform_surface_to_image_coordinates(x, y, transform_matrix)
 end
 
 
+function transform_surface_corners(pos, matrix)
+    num_pos = size(pos, 1)
+    homogenous_component = ones(num_pos, 1)
+    pos_homogenous = hcat(pos, homogenous_component)
+    #result_homogenous = pos_homogenous * transpose(matrix)
+    result_homogenous = pos_homogenous * matrix
+    result_homogenous ./= result_homogenous[:, end:end]  # normalize
+    new_pos = result_homogenous[:, 1:end-1]  # projection
+    return new_pos
+end
+
 function parse_transformation_matrix(matrix_str)
     # Remove brackets and commas, then split by spaces
     cleaned_str = replace(matrix_str, r"[\[\],]" => "")
@@ -105,6 +116,7 @@ function pixel_center_and_flip(x, y, img_width, img_height)
     return x, new_y
 end
 
+# this is the function that reads files ;)
 function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFrame(), root_folder="/Users/varya/Desktop/Julia/", frames=DataFrame())
     #root_folder="/Users/varya/Desktop/Julia/"
     if isempty(frames)
@@ -126,10 +138,8 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFr
 
 
     set_surface_positions = filter(row -> row[:set] == 12 && row[:session] == 4, surface_positions)
-    #CSV.write("set_surface_positions12.csv", set_surface_positions)
+
     set_yolo_coordinates = filter(row -> row[:set] == 12 && row[:session] == 4, yolo_coordinates)
-    #12_01_4vase_8078
-    #06_01_4spritze_7748
 
     frame_objects = filter(row -> row[:frame_number] == 8048, set_yolo_coordinates)
     for object in eachrow(frame_objects)
@@ -162,13 +172,8 @@ function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write
         println("checking surface: $(surface.surface)")
         # Extract the transformation matrix
         transform_matrix=parse_transformation_matrix(surface.surf_to_dist_img_trans)
-        corners = [(0.0, 0.0), (1.0,0.0), (0.0, 1.0), (0.0, 0.0)]
-        corners_coords = []
-        for corner in corners
-            x, y = corner
-            pixel_x, pixel_y =  transform_surface_to_image_coordinates(x, y, transform_matrix)
-            push!(corners_coords, (pixel_x, pixel_y))
-        end
+        corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
+        corners_coords = test_coordinates = transform_surface_corners(corners,  transform_matrix)
         surface_coords[surface.surface] = corners_coords
     end
     if write_to_file
@@ -189,16 +194,17 @@ function plot_surfaces(surface_coordinates)
     fig = Figure(resolution = (1920, 1080))
     ax = Axis(fig[1, 1])
     xlims!(ax, 0, 1920)
-    ylims!(ax, 0, 1080)
+    ylims!(ax, 1080, 0)
     # Plot each surface
-    for surface in values(surface_coordinates)
-        println("Plotting surface: $(surface)")
+    for surface in surface_coordinates
+        surface_name = surface[1]
+        println("Plotting surface: $surface_name, with corners: ")
+        println(surface[2])
+        surface_corners = surface[2]
         # Extracting the first two elements from each 4-element tuple and converting to Point2f
-        preprocessed_coords = [(x[1], x[2]) for x in surface]
+        preprocessed_coords = [(row[1], row[2])  for row in eachrow(surface_corners)]
         poly!(ax, Point2f.(preprocessed_coords), color = :white, strokecolor = :black, strokewidth = 1)
     end
-    # Adjust limits if necessary
-
     # Display the figure
     display(fig)
 end
@@ -207,20 +213,10 @@ end
 # Each surface is defined by its corners (x, y) in a clockwise or counterclockwise order
 
 
-plot_surfaces(flipped_surface_coordinates)
+plot_surfaces(surface_coordinates)
 
 surface_coordinates= get_all_surfaces_for_a_frame(8078, set_surface_positions, true)
 flipped_surface_coordinates = Dict()
-for (name,surface) in surface_coordinates
-    #name,surface = surface_coordinates["21"]
-    flipped_surface=[]
-    for corner in values(surface)
-        x, y = corner
-        x_pixel, y_pixel =  pixel_center_and_flip(x, y, 1920, 1080)
-        push!(flipped_surface, (x_pixel, y_pixel))
-    end
-    flipped_surface_coordinates[name] = flipped_surface
-end
 
 
 camera_coeff = read_intrinsics("/Users/varya/Desktop/Julia/DGAME data/DGAME3_12_01/002/world.intrinsics")["(1920, 1080)"]
@@ -230,6 +226,8 @@ resolution = camera_coeff["resolution"][1]
 #same resolution, just in 8x system
 Int(camera_coeff["resolution"][1])
 
-
-using CxxWrap
-CxxWrap.CxxWrapCore.prefix_path()
+surface_corners = reshape([0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0], 4, 1, 2)
+corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
+test_matrix = parse_transformation_matrix("[[ 1.67485215e+02,  8.73292787e+01,  1.44740836e+03],[ 5.43594466e+01, -1.56430576e+02,  4.17306338e+02], [ 1.58437206e-02,  4.11481102e-02,  1.00000000e+00]]")
+test_coordinates = transform_surface_corners(corners,  test_matrix)
+typeof(corners)

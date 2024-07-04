@@ -310,7 +310,6 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
                 continue
             end
             frame_number = minimum(fixations_in_window[!, :world_index])
-            println("Frame number: ", frame_number)
             fixations_in_window = filter(row -> row.time_corrected >= start_time && row.time_corrected <= end_time, set_fixations)            
             #noun onset and face visibility and the frame number for the minimum time of the tuple
             fixations_in_window.noun = fill(noun.text, nrow(fixations_in_window))
@@ -602,31 +601,69 @@ function transform_surface_to_image_coordinates(x, y, transform_matrix)
     return new_pos[1], new_pos[2]
 end
 
+#this is the function that is used to calculate surfaces to world
+function transform_surface_corners(pos, matrix)
+    num_pos = size(pos, 1)
+    homogenous_component = ones(num_pos, 1)
+    pos_homogenous = hcat(pos, homogenous_component)
+    #result_homogenous = pos_homogenous * transpose(matrix)
+    result_homogenous = pos_homogenous * matrix
+    result_homogenous ./= result_homogenous[:, end:end]  # normalize
+    new_pos = result_homogenous[:, 1:end-1]  # projection
+    return new_pos
+end
+
+
 function read_intrinsics(file_path)
     binary_content = read_binary_file(file_path)
     data = MsgPack.unpack(binary_content)
     return data
 end
 
-function get_gazes_and_fixations_by_frame_and_surface(set,session, surface, frame_number, surfaces_file)
+function get_gazes_and_fixations_by_frame_and_surface(set, surfaces_file)
+    #set = "04"
     #get the gazes and fixations for the surface
-    surfaces_file= CSV.read("/Users/varya/Desktop/Julia/Roberts ET data/surface_frames.csv", DataFrame) |>
-    df -> transform!(df, :token => ByRow(lowercase) => :token) |>
-    df -> rename!(df, :frame => :frame_number) |>
-    df -> transform!(df, :surface => ByRow(string) => :surface) |>
-    df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) |>
-    df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session) 
+    surfaces_1 = select(surfaces_file, [:frame_number, :token, :set, :session, :surface])
+    surfaces_2 = select(surfaces_file, [:frame_number, :token, :set, :session, :surface2]) |>
+    df -> rename!(df, :surface2 => :surface) |>
+    df -> filter(row -> row[:surface]!= "", df)
+    surfaces = vcat(surfaces_1, surfaces_2)
 
-    fixations = get_set_fixations_for_nouns("04") |>
-    df -> rename!(df, :noun => :token) |>
-    df -> select!(df, [:time_corrected, :fixation_id, :frame_number, :set, :session, :token, :surface])
-    fixations = innerjoin(fixations, surfaces_file, on = [:frame_number, :set, :session, :token, :surface])
+    if set in unique(surfaces.set)
+        fixations = get_set_fixations_for_nouns(set) |>
+        df -> rename!(df, :noun => :token) |>
+        df -> select!(df, [:participant, :time_corrected, :noun_time, :fixation_id, :face, :frame_number, :set, :session, :token, :surface])
+        fixations = innerjoin(fixations, surfaces, on = [ :frame_number, :set, :session, :token, :surface]) |> unique
+        fixations.diff_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(fixations)]
+    else
+        fixations = DataFrame()
+    end     
+    
     # gazes have different frame numbers
-    gazes = get_set_fixations_for_nouns("04", "","gaze_positions_on_surface") |>
-    df -> rename!(df, :noun => :token)
-    gazes = innerjoin(gazes, surfaces_file, on = [:frame_number, :set, :session, :token, :surface])
+    if set in unique(surfaces.set)
+        gazes = get_set_fixations_for_nouns(set, "","gaze_positions_on_surface") |>
+        df -> rename!(df, :noun => :token)
+        gazes = innerjoin(gazes, surfaces, on = [:frame_number, :set, :session, :token, :surface])
+        gazes.diff_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(gazes)]
+    else
+        gazes = DataFrame()
+    end
 
     return gazes, fixations
+end
+
+function get_all_gazes_and_fixations_by_frame(sets)
+    all_gazes = DataFrame()
+    all_fixations = DataFrame()
+    for set in sets
+        fixations = get_set_fixations_for_nouns(set)
+        gazes = get_set_fixations_for_nouns(set, "","gaze_positions_on_surface")
+        all_gazes = vcat(all_gazes, gazes)
+        all_fixations = vcat(all_fixations, fixations)
+    end
+    all_fixations.trial_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(all_fixations)]
+    all_gazes.trial_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(all_gazes)]
+    return all_gazes, all_fixations
 end
 
 function plot_surfaces(surface_coordinates)
@@ -634,16 +671,17 @@ function plot_surfaces(surface_coordinates)
     fig = Figure(resolution = (1920, 1080))
     ax = Axis(fig[1, 1])
     xlims!(ax, 0, 1920)
-    ylims!(ax, 0, 1080)
+    ylims!(ax, 1080, 0)
     # Plot each surface
-    for surface in values(surface_coordinates)
-        println("Plotting surface: $(surface)")
+    for surface in surface_coordinates
+        surface_name = surface[1]
+        println("Plotting surface: $surface_name, with corners: ")
+        println(surface[2])
+        surface_corners = surface[2]
         # Extracting the first two elements from each 4-element tuple and converting to Point2f
-        preprocessed_coords = [(x[1], x[2]) for x in surface]
+        preprocessed_coords = [(row[1], row[2])  for row in eachrow(surface_corners)]
         poly!(ax, Point2f.(preprocessed_coords), color = :white, strokecolor = :black, strokewidth = 1)
     end
-    # Adjust limits if necessary
-
     # Display the figure
     display(fig)
 end
