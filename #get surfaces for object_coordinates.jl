@@ -117,12 +117,14 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFr
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
 
     end
+    CSV.write("all_frame_objects_with_surfaces.csv", all_frame_objects)
     return all_frame_objects
 end
 
 function get_surface_for_frame_objects(frame_objects, frame_surfaces)
     #this function is work in progress
     # Select the relevant row based on world_index (frame number)
+    filter!(row -> row[:surface] != "face", frame_surfaces)
     corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
     frame_objects.surface_number = fill("outside all", nrow(frame_objects))
     for object in eachrow(frame_objects)
