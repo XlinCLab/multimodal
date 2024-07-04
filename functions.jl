@@ -731,6 +731,42 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFr
     return all_frame_objects
 end
 
+function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFrame(), root_folder="/Users/varya/Desktop/Julia/", frames=DataFrame(), img_width = 1920, img_height = 1080)
+    #root_folder="/Users/varya/Desktop/Julia/"
+    if isempty(frames)
+        frames=CSV.read(joinpath(root_folder,"frame_numbers_with_tokens.csv"), DataFrame) 
+        println("frames read from file")
+    end
+
+    if isempty(surface_positions)
+        data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
+        surface_positions =  DataFrame()
+        for (i, surf_name) in enumerate(surf_names)
+            surface_positions[!, Symbol(surf_name)] = data[i]
+        end
+    end
+    if isempty(yolo_coordinates)
+        yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv"), DataFrame) |> 
+        df -> filter!(row -> row[:set] != NaN, df)|>
+        df -> transform!(df, :x => ByRow(x -> x*img_width) => :x)|>
+        df -> transform!(df, :w => ByRow(x -> x*img_width) => :w)|>
+        df -> transform!(df, :y => ByRow(x -> x*img_height) => :y)|>
+        df -> transform!(df, :h => ByRow(x -> x*img_height) => :h)
+        println("yolo_coordinates read from file")
+    end
+    # now make a file with a map - frame,object,surface
+    #assume, we have all the GOOD frames - with 6 April tages recognized
+    all_frame_objects = DataFrame()
+    for frame in eachrow(frames)
+        frame_objects = filter(row -> row[:frame_number] == frame.frame_number, yolo_coordinates)
+        frame_surfaces = filter(row -> row[:world_index] == frame.frame_number, surface_positions)
+        frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces)
+        all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
+
+    end
+    return all_frame_objects
+end
+
 function get_surface_for_frame_objects(frame_objects, frame_surfaces)
     #this function is work in progress
     # Select the relevant row based on world_index (frame number)
@@ -785,3 +821,4 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces)
     end
     return frame_objects
 end
+
