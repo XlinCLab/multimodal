@@ -17,40 +17,7 @@ include("/Users/varya/Desktop/Julia/functions.jl")
 
     # Load the CSV file with TextParse, CSV.read cannot parse it
 
-#Not sure it works properly, check
-function get_surface_for_object( object_x, object_y, frame_number, set_surface_positions)
-    #this function is work in progress
-    img_width = 1920
-    img_height = 1080
 
-    # Select the relevant row based on world_index (frame number)
-    frame_surfaces = set_surface_positions[set_surface_positions.world_index .== frame_number, :]
-
-    surface_number = "outside all"
-    for surface in eachrow(frame_surfaces)
-        #surface = eachrow(frame_surfaces)[1]
-        println("checking surface: $(surface.surface)")
-        # Extract the transformation matrix
-        surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
-        surface_corner =transform_surface_to_image_coordinates(1, 1, surf_to_img_trans)
-        img_to_surf_trans = parse_transformation_matrix(surface.dist_img_to_surf_trans)
-        surface_corner =transform_image_to_surface_coordinates(0.47,-0.49, img_to_surf_trans)
-        center_x_pixel, center_y_pixel = yolo_to_pixel_center(object_x, object_y, img_width, img_height)
-        # Transform bounding box center to surface coordinates
-        center_x_surf, center_y_surf = transform_image_to_surface_coordinates(center_x_pixel, center_y_pixel, img_to_surf_trans)
-        println("Center x surf: $center_x_surf, Center y surf: $center_y_surf")
-        function is_inside_surface(x_surf, y_surf)
-            return 0.0 <= x_surf <= 1.0 && 0.0 <= y_surf <= 1.0
-        end
-        if is_inside_surface(center_x_surf, center_y_surf)
-            surface_number = surface.surface
-            println("Object is inside surface: $surface_number")
-            return surface_number
-        end
-    end
-    println(surface_number)
-    return surface_number
-end
 
 function yolo_to_pixel_center(x, y, img_width, img_height)
     x_pixel = x * img_width
@@ -117,7 +84,7 @@ function pixel_center_and_flip(x, y, img_width, img_height)
 end
 
 # this is the function that reads files ;)
-function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFrame(), root_folder="/Users/varya/Desktop/Julia/", frames=DataFrame())
+function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFrame(), root_folder="/Users/varya/Desktop/Julia/", frames=DataFrame(), img_width = 1920, img_height = 1080)
     #root_folder="/Users/varya/Desktop/Julia/"
     if isempty(frames)
         frames=CSV.read(joinpath(root_folder,"frame_numbers_with_tokens.csv"), DataFrame) 
@@ -132,32 +99,81 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFr
         end
     end
     if isempty(yolo_coordinates)
-        yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv"), DataFrame) 
+        yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv"), DataFrame) |> 
+        df -> filter!(row -> row[:set] != NaN, df)|>
+        df -> transform!(df, :x => ByRow(x -> x*img_width) => :x)|>
+        df -> transform!(df, :w => ByRow(x -> x*img_width) => :w)|>
+        df -> transform!(df, :y => ByRow(x -> x*img_height) => :y)|>
+        df -> transform!(df, :h => ByRow(x -> x*img_height) => :h)
         println("yolo_coordinates read from file")
     end
+    # now make a file with a map - frame,object,surface
+    #assume, we have all the GOOD frames - with 6 April tages recognized
+    all_frame_objects = DataFrame()
+    for frame in eachrow(frames)
+        frame_objects = filter(row -> row[:frame_number] == frame.frame_number, yolo_coordinates)
+        frame_surfaces = filter(row -> row[:world_index] == frame.frame_number, surface_positions)
+        frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces)
+        all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
 
-
-    set_surface_positions = filter(row -> row[:set] == 12 && row[:session] == 4, surface_positions)
-
-    set_yolo_coordinates = filter(row -> row[:set] == 12 && row[:session] == 4, yolo_coordinates)
-
-    frame_objects = filter(row -> row[:frame_number] == 8048, set_yolo_coordinates)
-    for object in eachrow(frame_objects)
-        #object = eachrow(frame_objects)[1]
-        object_name = object.object
-        object_x = object.x
-        object_y = object.y
-        normalized_ET = yolo_to_normalized_ET(object_x, object_y)
-        frame_number = 7748
-        println("Object: $(object.object), x: $(object.x), y: $(object.y)")
-        get_surface_for_object(object_x, object_y, frame_number, set_surface_positions)
     end
-
-
-    get_surface_for_object( object_x, object_y, frame_number, set_surface_positions)
-
+    return all_frame_objects
 end
 
+function get_surface_for_frame_objects(frame_objects, frame_surfaces)
+    #this function is work in progress
+    # Select the relevant row based on world_index (frame number)
+    corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
+    frame_objects.surface_number = fill("outside all", nrow(frame_objects))
+    for object in eachrow(frame_objects)
+        #object = eachrow(frame_objects)[1]
+        println("Object: $(object.object), x: $(object.x), y: $(object.y)")
+        for surface in eachrow(frame_surfaces)
+            #surface = eachrow(frame_surfaces)[1]
+            println("checking surface: $(surface.surface)")
+            # Extract the transformation matrix
+            surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
+            surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+            #check if object is inside the surface
+            if object.x > minimum(surface_corners[:, 1]) && object.x < maximum(surface_corners[:, 1]) && object.y > minimum(surface_corners[:, 2]) && object.y < maximum(surface_corners[:, 2])
+                object.surface_number = surface.surface
+                println("Object is inside surface: $(surface.surface)")
+                continue
+            end
+        end
+             #if an object center is outside all, try lower center
+        if object.surface_number == "outside all"
+            for surface in eachrow(frame_surfaces)
+                object_y = object.y + object.h/2
+                surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
+                surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+                surface_limits=(minimum(surface_corners[:, 1]),maximum(surface_corners[:, 1]),minimum(surface_corners[:, 2]),maximum(surface_corners[:, 2]))
+                println("Surface $(surface.surface) limits:")
+                print(surface_limits)
+                if object.x > minimum(surface_corners[:, 1]) && object.x < maximum(surface_corners[:, 1]) && object_y > minimum(surface_corners[:, 2]) && object_y < maximum(surface_corners[:, 2])
+                    object.surface_number = surface.surface
+                    println("Object is inside surface: $(surface.surface)")
+                    continue
+                end
+            end
+        end
+
+        #if lower center does not work, try upper center
+        if object.surface_number == "outside all"
+            for surface in eachrow(frame_surfaces)
+                object_y = object.y - object.h/2
+                surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
+                surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+                if object.x > minimum(surface_corners[:, 1]) && object.x < maximum(surface_corners[:, 1]) && object_y > minimum(surface_corners[:, 2]) && object_y < maximum(surface_corners[:, 2])
+                    object.surface_number = surface.surface
+                    println("Object is inside surface: $(surface.surface)")
+                    continue
+                end
+            end
+        end
+    end
+    return frame_objects
+end
 
 function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write_to_file=false)
     #this function is work in progress
