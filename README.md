@@ -1,6 +1,22 @@
 # multimodal
 
-This is a collection of scripts in Julia to preprocess the multimodal data collected using Lab Streaming Layer. `Functions.jl` contains a collection of Julia functions designed for processing eye-tracking data, handling various data formats, and performing transformations. These functions are particularly tailored for working with data from the DGAME project.
+This is a collection of scripts in Julia to preprocess the multimodal naturalistic data collected using Lab Streaming Layer. `Functions.jl` contains a collection of Julia functions designed for processing eye-tracking data, handling various data formats, and performing transformations. These functions are particularly tailored for working with data from the DGAME project. The data comes in .csv files for fixations, gazes and audio annotations, .mp4 files for video, and .xdf, .json and binaty formats for other files.
+
+The DGAME project is a naturalistic interactive experimental setting, where two participant separated by an obstacle (a 4x4 wooden shelf) have to reorder the objects on the shelf. Objects may be unique (one signgle batter per shelf) or duplicated (two identical candles). the Director has a stack of cards with pictures of the two adjacent cells of the shelf holding objects, then they have to come up with the instructions for the Matcher to move one of the objects to match the picture. Some of the cells are closed from the side of the Director, so they cannot see all the objects. In half of the trials the Director and the Matcher cannot see the faces of each other. Every pair of participants have four sessions, 10 minutes each.
+
+The preprocessing is done in several steps, object positions on the shelf is done with computer vision (yolo)
+
+The preprocessing is done in the following steps:
+Read all the Lab Streaming Layer timestamps from  .xdf files and aggregate them in one table
+Read all the eye-tracker timestamps from .json files from the eye-tracker raw data for the director and the matcher and aggregate them in one table
+Get all the frames of interest (200 milliseconds primary to the noun onset) and recognize object positions with pretrained yolo CV model.
+Get all coordinates for all recognized objects for all frames and write them to one dataset
+For each Director-Matcher pair, for each session:
+    Read the audio transcription, select the target object mentions, tokenize all nouns (participant can call the same object with different words)
+    Read all surface fixations files, clean by surface, combine into one dstaset, align timelines, filter by +- n milliseconds from target noun onset
+    Get all the surface coordinates, perspective transform into picture pixel coordinates
+    Get all the object coordinates from the preaggregated .csv
+    Get all the gazes and fixations for the director and the Matcher: for target objects only, for all objects and the face of the other participant
 
 In the last month the priority was to get everything to work, so I apologize for the lack of documentation. I am planning to get everything nicely documentd in the nearest time.
 
