@@ -21,3 +21,6 @@
 *.o*
 *.a*
 *.d*
+.vscode
+DGAME*
+Rob*
