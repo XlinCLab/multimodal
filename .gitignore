@@ -21,6 +21,7 @@
 *.o*
 *.a*
 *.d*
-.vscode
-DGAME*
-Rob*
+.vscode/
+DGAME data/
+Roberts ET data/
+
