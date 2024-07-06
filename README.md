@@ -7,16 +7,17 @@ The DGAME project is a naturalistic interactive experimental setting, where two 
 The preprocessing is done in several steps, object positions on the shelf is done with computer vision (yolo)
 
 The preprocessing is done in the following steps:
-Read all the Lab Streaming Layer timestamps from  .xdf files and aggregate them in one table
-Read all the eye-tracker timestamps from .json files from the eye-tracker raw data for the director and the matcher and aggregate them in one table
-Get all the frames of interest (200 milliseconds primary to the noun onset) and recognize object positions with pretrained yolo CV model.
-Get all coordinates for all recognized objects for all frames and write them to one dataset
+- Read all the Lab Streaming Layer timestamps from  .xdf files and aggregate them in one table
+- Read all the eye-tracker timestamps from .json files from the eye-tracker raw data for the director and the matcher and aggregate them in one table
+- Get all the frames of interest (200 milliseconds primary to the noun onset) and recognize object positions with pretrained yolo CV model.
+- Get all coordinates for all recognized objects for all frames and write them to one dataset
+- 
 For each Director-Matcher pair, for each session:
-    Read the audio transcription, select the target object mentions, tokenize all nouns (participant can call the same object with different words)
-    Read all surface fixations files, clean by surface, combine into one dstaset, align timelines, filter by +- n milliseconds from target noun onset
-    Get all the surface coordinates, perspective transform into picture pixel coordinates
-    Get all the object coordinates from the preaggregated .csv
-    Get all the gazes and fixations for the director and the Matcher: for target objects only, for all objects and the face of the other participant
+ -   Read the audio transcription, select the target object mentions, tokenize all nouns (participant can call the same object with different words)
+ -   Read all surface fixations files, clean by surface, combine into one dstaset, align timelines, filter by +- n milliseconds from target noun onset
+ -   Get all the surface coordinates, perspective transform into picture pixel coordinates
+ -   Get all the object coordinates from the preaggregated .csv
+ -   Get all the gazes and fixations for the director and the Matcher: for target objects only, for all objects and the face of the other participant
 
 In the last month the priority was to get everything to work, so I apologize for the lack of documentation. I am planning to get everything nicely documentd in the nearest time.
 
