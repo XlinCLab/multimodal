@@ -327,6 +327,52 @@ function get_set_fixations_for_nouns(set::String, root_folder::String="", data_t
         return  fixations_for_set
 end
 
+function check_april_tags_for_frames(frames)
+    if isempty(frames)
+        frames = CSV.read("frame_numbers_with_tokens.csv", DataFrame) |>
+        df -> transform!(df, :participant => ByRow(x-> x[1:2]) => :set) |>
+        df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session)
+        frames.new_frame_number = zeros(Int,size(frames, 1))
+    end
+    videos = unique(frames.video_path)
+    for video in videos
+        surfaces_folder = joinpath(replace(video, "world.mp4" => ""),"exports")
+        subfolders = [f for f in readdir(surfaces_folder ) if isdir(joinpath(surfaces_folder, f))]
+        if subfolders[1]=="surfaces"
+            surface_folder = joinpath(surfaces_folder, subfolders[1])
+        else
+            surface_folder = joinpath(surfaces_folder, subfolders[1],"surfaces")
+        end
+        data, surf_names = TextParse.csvread(joinpath(surface_folder, "surf_positions_face.csv"))
+        april_tags =  DataFrame()
+        for (i, surf_name) in enumerate(surf_names)
+            april_tags[!, Symbol(surf_name)] = data[i]
+        end
+        april_tags_dict = Dict(row[:world_index] => row[:num_detected_markers] for row in eachrow(april_tags))
+        for frame in eachrow(frames)
+            println(frame.frame_number)
+            if haskey(april_tags_dict, frame.frame_number) && april_tags_dict[frame.frame_number] == 6
+                frame.new_frame_number = frame.frame_number
+                continue
+            else
+            #I want to have the frame with maximum tags recognized
+            #but only before the onset, with 30 fps 200ms is 6 frames
+                println("not enough tags frame number: ", frame.frame_number)
+                frame_tags = Dict(key => value for (key, value) in april_tags_dict if key >= frame.frame_number - 10 && key <= frame.frame_number + 6)
+                println(frame_tags)
+                if isempty(frame_tags)
+                    frame.new_frame_number = 0
+                    continue
+                end
+                max_tags_recognized = maximum(values(frame_tags))
+                frame.new_frame_number =  [key for (key, value) in frame_tags if value == max_tags_recognized][1]
+            end
+        end
+        
+    end
+    CSV.write("frame_numbers_corrected_with_tokens.csv", frames)
+    return frames
+end
 
 function read_timestamps_from_xdf(setting::String, root_folder::String="")
     if root_folder==""
