@@ -6,9 +6,7 @@ root_folder = "/Users/varya/Desktop/Julia/"
 sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
 
 #Read all the Lab Streaming Layer timestamps from .xdf files and aggregate them in one table
-get_all_timestamps_from_xdf(sets, root_folder)
-#Read all the eye-tracker timestamps from .json files from the eye-tracker raw data for the director and the matcher and aggregate them in one table
-get_all_timestamps_json(sets, root_folder)
+get_all_timestamps_xdf(sets, root_folder)
 
 #Get all the frames of interest (200 milliseconds primary to the noun onset
 #check if all the april tags are recognized, if not

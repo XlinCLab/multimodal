@@ -7,7 +7,6 @@
 #Pkg.add("JSON")
 #Pkg.add("LinearAlgebra")
 #Pkg.add("TextParse")
-#Pkg.add("PrettyTables")
 #Pkg.add("MsgPack")
 
 using Printf
@@ -82,7 +81,7 @@ function read_timestamps_from_xdf(setting::String, root_folder::String="")
     return timestamps
 end
 
-function get_all_timestamps_xdf(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
+function get_all_timestamps_xdf(sets, root_folder)
     timestamps_xdf = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[], :diff => Float64[], :duration => Float64[])
     for set in sets
         timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set))
@@ -888,3 +887,25 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces)
     return frame_objects
 end
 
+function print_folder_structure(path::String, indent::String = "")
+    # List all files and directories in the given path
+    entries = readdir(path)
+    # Sort entries to list directories first, then files
+    sorted_entries = sort(entries, by = x -> (isdir(joinpath(path, x)) ? 0 : 1, x))
+    
+    for (i, entry) in enumerate(sorted_entries)
+        # Determine if the current entry is the last in the list
+        is_last = i == length(sorted_entries)
+        # Prepare the prefix for printing
+        prefix = is_last ? "└── " : "├── "
+        # Print the current entry
+        println(indent * prefix * entry)
+        
+        # If the entry is a directory, recursively print its contents
+        full_path = joinpath(path, entry)
+        if isdir(full_path)
+            new_indent = indent * (is_last ? "    " : "│   ")
+            print_folder_structure(full_path, new_indent)
+        end
+    end
+end
