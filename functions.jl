@@ -21,6 +21,7 @@ using JSON
 using LinearAlgebra
 using TextParse
 
+# functions that create aggregated tables with timestamps, lags and coordinates
 function get_json_timestamp(participant, session, root_folder="/Users/varya/Desktop/Julia/DGAME data/")
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
     surface_session = surface_sessions[session]
@@ -37,6 +38,159 @@ function get_json_timestamp(participant, session, root_folder="/Users/varya/Desk
     duration = info["duration_s"]
     return (start_time_synced_s, duration)
 end
+
+function read_timestamps_from_xdf(setting::String, root_folder::String="")
+    if root_folder==""
+        root_folder="/Users/varya/Desktop/Julia/DGAME data/xdf"
+    end
+    sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])
+    director_files = readdir(joinpath(root_folder,  setting, "Director"))
+    #setting = "04" #for testing
+    timestamps = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[])
+    #file = director_files[1] #for testing
+    for file in director_files
+        try
+            sessions[file[end-5:end-4]]
+        catch e
+            println("No session for $file or file is irrelavant")
+            continue
+        end
+        session = sessions[file[end-5:end-4]]
+        exp_set = read_xdf(joinpath(joinpath(root_folder, setting, "Director"),file))
+        # Extract the timestamps from the XDF file
+        # the numbers of streams are random in terms of what is the contents
+        #so we have to check the contents of the streams by name
+        for i in eachindex(exp_set)
+            println(exp_set[i]["name"])
+            name=exp_set[i]["name"]
+            if name == "audio"
+                audio_created = round(parse(Float64,xml_dict(exp_set[i]["header"])["info"]["created_at"]), digits=3)
+                audio_first_timestamp = round(parse(Float64, xml_dict(exp_set[i]["footer"])["info"]["first_timestamp"]), digits=3)
+                audio_last_timestamp = round(parse(Float64,xml_dict(exp_set[i]["footer"])["info"]["last_timestamp"]), digits=3)
+                push!(timestamps, (setting, session, "audio",audio_created, audio_first_timestamp, audio_last_timestamp))
+            elseif name == "pupil_capture"
+                ET_name=xml_dict(exp_set[i]["header"])["info"]["hostname"]
+                ET_created = round(parse(Float64,xml_dict(exp_set[i]["header"])["info"]["created_at"]), digits=3)
+                ET_first_timestamp = round(parse(Float64,xml_dict(exp_set[i]["footer"])["info"]["first_timestamp"]), digits=3)
+                ET_last_timestamp = round(parse(Float64,xml_dict(exp_set[i]["footer"])["info"]["last_timestamp"]), digits=3)
+                push!(timestamps, (setting, session, "ET_$ET_name", ET_created, ET_first_timestamp, ET_last_timestamp))
+            end
+        end
+    end
+    timestamps.diff = timestamps.first_timestamp - timestamps.created
+    timestamps.duration = timestamps.last_timestamp - timestamps.first_timestamp 
+    return timestamps
+end
+
+function get_all_timestamps_xdf(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
+    timestamps_xdf = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[], :diff => Float64[], :duration => Float64[])
+    for set in sets
+        timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set))
+    end
+    # Define a function that converts a float to an integer
+    float_to_int(x::Float64) = trunc(Int, x)
+    transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=> (x -> x .* 1000) .=> names(timestamps_xdf, Float64))
+    # Apply this function to each float column in the DataFrame
+    transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_xdf, Float64))
+    #lot's of data missing for the director
+    CSV.write(joinpath(root_folder, "timestamps_xdf.csv"), timestamps_xdf)
+    return timestamps_xdf
+end
+
+function get_all_timestamps_json(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
+    #now get all timestampd from .json files
+    timestamps_json = DataFrame(:set => String[], :session => String[], :stream => String[], :first_timestamp => Float64[],  :duration => Float64[])
+    for set in sets
+        director = set*"_02"
+        matcher = set*"_01"
+        for session in ["01", "02", "03", "04"]
+            start_time_synced_s_dir = get_json_timestamp(director, session)
+            if start_time_synced_s_dir == Dict()
+                println("No json file for $set for this session: $session")
+                continue
+            else
+                start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
+            end
+            push!(timestamps_json, (set, session,"ET_DESKTOP-5B8EI51", start_time_synced_s_dir, duration_dir))
+            start_time_synced_s_matcher = get_json_timestamp(matcher, session)
+            if start_time_synced_s_matcher == Dict()
+                println("No json file for $set for this session: $session")
+                continue
+            else
+                start_time_synced_s_matcher, duration_matcher = get_json_timestamp(matcher, session)
+            end
+            push!(timestamps_json, (set, session,"ET_idslexp", start_time_synced_s_matcher, duration_matcher))
+        end
+    end
+    float_to_int(x::Float64) = trunc(Int, x)
+    transform!( timestamps_json, names(timestamps_json, Float64) .=> (x -> x .* 1000) .=> names(timestamps_json, Float64))
+    # Apply this function to each float column in the DataFrame
+    transform!( timestamps_json, names( timestamps_json, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_json, Float64))
+    CSV.write(joinpath(root_folder, "timestamps_ET.csv"), timestamps_json)
+    return timestamps_json
+end
+
+function get_lag_ET(reprocess="no",root_folder="/Users/varya/Desktop/Julia/DGAME data")
+    #call the functions to refresf the data
+    if reprocess == "yes"
+        sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
+        get_all_timestamps_xdf(sets)
+        get_all_timestamps_json(sets)
+    end
+        ET_xdf = CSV.read(joinpath(root_folder, "timestamps_xdf.csv"), DataFrame)|>
+        df -> rename!(df, :first_timestamp => :first_timestamp_xdf)|>
+        df -> rename!(df, :duration => :duration_xdf)|>
+        df -> filter!(row -> row.stream != "audio", df)
+
+        json = CSV.read(joinpath(root_folder, "timestamps_ET.csv"), DataFrame)
+
+        lag = innerjoin(ET_xdf, json, on = [:set, :session, :stream]) 
+        transform!(lag, [:first_timestamp_xdf, :first_timestamp] => ByRow((x,y) -> (x - y)/1000) => :lag_timestamp)
+        transform!(lag, [:duration, :duration_xdf] => ByRow((x,y) -> (x - y)/1000) => :lag_duration)
+        
+    CSV.write("/Users/varya/Desktop/Julia/DGAME data/lag_data.csv", lag)   
+    return lag 
+end
+
+function get_all_yolo_coordinates(labels_folder)
+    labels_folder = "/Users/varya/Desktop/Python/yoloo/yolo7Test/data/results/output/labels"
+    object_names=Dict([(0,"batterie"), (1,"blume"), (2,"creme"), (3,"kerze") ,(4, "spritze"), (5,"tasse"),(6,"tube"), (7,"vase")])
+    all_yolo_coordinates = DataFrame(
+           frame_number = Int[],
+           set = String[],
+           session = String[],
+           object = String[],
+           x = Float64[],
+           y = Float64[],
+           w = Float64[],
+           h = Float64[]
+       )
+    for file in readdir(labels_folder)
+        if occursin(".txt", file)
+            frame_number = parse(Int, split(file, "_")[end] |> x -> split(x, ".")[1])
+            data = readlines(joinpath(labels_folder, file))
+            for line in data
+                object = split(line, " ")[1]
+                set=split(file, "_")[1]
+                if length(split(file, "_"))>2
+                    session=string(split(file, "_")[3][1])
+                else
+                    session="0"
+                end
+                object = object_names[parse(Int, object)]
+                x = parse(Float64, split(line, " ")[2])
+                y = parse(Float64, split(line, " ")[3])
+                w = parse(Float64, split(line, " ")[4])
+                h = parse(Float64, split(line, " ")[5])
+                push!(all_yolo_coordinates, (frame_number,set,session, object, x, y, w, h))
+            end
+        end
+       CSV.write("all_yolo_coordinates.csv", all_yolo_coordinates)
+       return all_yolo_coordinates
+    end
+end
+
+#functions that read words, gazes, fixations and create a framelist with tokens
 
 function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder="")
     if root_folder==""
@@ -152,7 +306,6 @@ function get_joint_attention_fixations(set, session)
     return joint_attention
 end
 
-
 function get_joint_attention_gaze_positions(set, session)
         director = set*"_02"
         matcher = set*"_01"
@@ -164,6 +317,23 @@ function get_joint_attention_gaze_positions(set, session)
     #world index is the number of the closest video DataFrame
     joint_attention = innerjoin(matcher_gps,director_gps, on = [:world_index, :surface] )
     return joint_attention
+end
+
+function get_frames_from_fixations(all_fixations)
+    frame_numbers = select(all_fixations, :frame_number, :participant, :session, :noun)
+    frame_numbers = unique!(frame_numbers)
+    #take only matcher videos
+    frame_numbers = filter(row -> endswith(row.participant, "_01"), frame_numbers)
+    frame_numbers.time_sec = [frame.frame_number/30 for frame in eachrow(frame_numbers)]
+    frame_numbers.video_path .= ""
+
+    #frame_numbers = CSV.read("/Users/varya/Desktop/Julia/frame_numbers.csv", DataFrame)
+    for row in eachrow(frame_numbers)
+        #row=eachrow(frame_numbers)[1]
+        session = lpad(row.session,2,"0")
+        session = surface_sessions[session]
+        row.video_path = joinpath(root_folder, "DGAME3_"*row.participant, session , "world.mp4")
+    end
 end
 
 #write face visibility
@@ -372,157 +542,6 @@ function check_april_tags_for_frames(frames)
     end
     CSV.write("frame_numbers_corrected_with_tokens.csv", frames)
     return frames
-end
-
-function read_timestamps_from_xdf(setting::String, root_folder::String="")
-    if root_folder==""
-        root_folder="/Users/varya/Desktop/Julia/DGAME data/xdf"
-    end
-    sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])
-    director_files = readdir(joinpath(root_folder,  setting, "Director"))
-    #setting = "04" #for testing
-    timestamps = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[])
-    #file = director_files[1] #for testing
-    for file in director_files
-        try
-            sessions[file[end-5:end-4]]
-        catch e
-            println("No session for $file or file is irrelavant")
-            continue
-        end
-        session = sessions[file[end-5:end-4]]
-        exp_set = read_xdf(joinpath(joinpath(root_folder, setting, "Director"),file))
-        # Extract the timestamps from the XDF file
-        # the numbers of streams are random in terms of what is the contents
-        #so we have to check the contents of the streams by name
-        for i in eachindex(exp_set)
-            println(exp_set[i]["name"])
-            name=exp_set[i]["name"]
-            if name == "audio"
-                audio_created = round(parse(Float64,xml_dict(exp_set[i]["header"])["info"]["created_at"]), digits=3)
-                audio_first_timestamp = round(parse(Float64, xml_dict(exp_set[i]["footer"])["info"]["first_timestamp"]), digits=3)
-                audio_last_timestamp = round(parse(Float64,xml_dict(exp_set[i]["footer"])["info"]["last_timestamp"]), digits=3)
-                push!(timestamps, (setting, session, "audio",audio_created, audio_first_timestamp, audio_last_timestamp))
-            elseif name == "pupil_capture"
-                ET_name=xml_dict(exp_set[i]["header"])["info"]["hostname"]
-                ET_created = round(parse(Float64,xml_dict(exp_set[i]["header"])["info"]["created_at"]), digits=3)
-                ET_first_timestamp = round(parse(Float64,xml_dict(exp_set[i]["footer"])["info"]["first_timestamp"]), digits=3)
-                ET_last_timestamp = round(parse(Float64,xml_dict(exp_set[i]["footer"])["info"]["last_timestamp"]), digits=3)
-                push!(timestamps, (setting, session, "ET_$ET_name", ET_created, ET_first_timestamp, ET_last_timestamp))
-            end
-        end
-    end
-    timestamps.diff = timestamps.first_timestamp - timestamps.created
-    timestamps.duration = timestamps.last_timestamp - timestamps.first_timestamp 
-    return timestamps
-end
-
-function get_all_timestamps_xdf(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
-    timestamps_xdf = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[], :diff => Float64[], :duration => Float64[])
-    for set in sets
-        timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set))
-    end
-    # Define a function that converts a float to an integer
-    float_to_int(x::Float64) = trunc(Int, x)
-    transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=> (x -> x .* 1000) .=> names(timestamps_xdf, Float64))
-    # Apply this function to each float column in the DataFrame
-    transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_xdf, Float64))
-    #lot's of data missing for the director
-    CSV.write(joinpath(root_folder, "timestamps_xdf.csv"), timestamps_xdf)
-    return timestamps_xdf
-end
-
-function get_all_timestamps_json(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
-    #now get all timestampd from .json files
-    timestamps_json = DataFrame(:set => String[], :session => String[], :stream => String[], :first_timestamp => Float64[],  :duration => Float64[])
-    for set in sets
-        director = set*"_02"
-        matcher = set*"_01"
-        for session in ["01", "02", "03", "04"]
-            start_time_synced_s_dir = get_json_timestamp(director, session)
-            if start_time_synced_s_dir == Dict()
-                println("No json file for $set for this session: $session")
-                continue
-            else
-                start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
-            end
-            push!(timestamps_json, (set, session,"ET_DESKTOP-5B8EI51", start_time_synced_s_dir, duration_dir))
-            start_time_synced_s_matcher = get_json_timestamp(matcher, session)
-            if start_time_synced_s_matcher == Dict()
-                println("No json file for $set for this session: $session")
-                continue
-            else
-                start_time_synced_s_matcher, duration_matcher = get_json_timestamp(matcher, session)
-            end
-            push!(timestamps_json, (set, session,"ET_idslexp", start_time_synced_s_matcher, duration_matcher))
-        end
-    end
-    float_to_int(x::Float64) = trunc(Int, x)
-    transform!( timestamps_json, names(timestamps_json, Float64) .=> (x -> x .* 1000) .=> names(timestamps_json, Float64))
-    # Apply this function to each float column in the DataFrame
-    transform!( timestamps_json, names( timestamps_json, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_json, Float64))
-    CSV.write(joinpath(root_folder, "timestamps_ET.csv"), timestamps_json)
-    return timestamps_json
-end
-
-function get_lag_ET(reprocess="no",root_folder="/Users/varya/Desktop/Julia/DGAME data")
-    #call the functions to refresf the data
-    if reprocess == "yes"
-        sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
-        get_all_timestamps_xdf(sets)
-        get_all_timestamps_json(sets)
-    end
-        ET_xdf = CSV.read(joinpath(root_folder, "timestamps_xdf.csv"), DataFrame)|>
-        df -> rename!(df, :first_timestamp => :first_timestamp_xdf)|>
-        df -> rename!(df, :duration => :duration_xdf)|>
-        df -> filter!(row -> row.stream != "audio", df)
-
-        json = CSV.read(joinpath(root_folder, "timestamps_ET.csv"), DataFrame)
-
-        lag = innerjoin(ET_xdf, json, on = [:set, :session, :stream]) 
-        transform!(lag, [:first_timestamp_xdf, :first_timestamp] => ByRow((x,y) -> (x - y)/1000) => :lag_timestamp)
-        transform!(lag, [:duration, :duration_xdf] => ByRow((x,y) -> (x - y)/1000) => :lag_duration)
-        
-    CSV.write("/Users/varya/Desktop/Julia/DGAME data/lag_data.csv", lag)   
-    return lag 
-end
-
-function get_all_yolo_coordinates(labels_folder)
-    labels_folder = "/Users/varya/Desktop/Python/yoloo/yolo7Test/data/results/output/labels"
-    object_names=Dict([(0,"batterie"), (1,"blume"), (2,"creme"), (3,"kerze") ,(4, "spritze"), (5,"tasse"),(6,"tube"), (7,"vase")])
-    all_yolo_coordinates = DataFrame(
-           frame_number = Int[],
-           set = String[],
-           session = String[],
-           object = String[],
-           x = Float64[],
-           y = Float64[],
-           w = Float64[],
-           h = Float64[]
-       )
-    for file in readdir(labels_folder)
-        if occursin(".txt", file)
-            frame_number = parse(Int, split(file, "_")[end] |> x -> split(x, ".")[1])
-            data = readlines(joinpath(labels_folder, file))
-            for line in data
-                object = split(line, " ")[1]
-                set=split(file, "_")[1]
-                if length(split(file, "_"))>2
-                    session=string(split(file, "_")[3][1])
-                else
-                    session="0"
-                end
-                object = object_names[parse(Int, object)]
-                x = parse(Float64, split(line, " ")[2])
-                y = parse(Float64, split(line, " ")[3])
-                w = parse(Float64, split(line, " ")[4])
-                h = parse(Float64, split(line, " ")[5])
-                push!(all_yolo_coordinates, (frame_number,set,session, object, x, y, w, h))
-            end
-        end
-       CSV.write("all_yolo_coordinates.csv", all_yolo_coordinates)
-       return all_yolo_coordinates
-    end
 end
 
 
@@ -810,6 +829,7 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFr
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
 
     end
+    CSV.write("all_frame_objects.csv", all_frame_objects)
     return all_frame_objects
 end
 

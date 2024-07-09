@@ -70,21 +70,9 @@ end
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_gazes_1sec.csv", all_gazes)
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations_1sec.csv", all_fixations)
 
-#set="08"
+
 
 all_surfaces_gazes, all_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_surfaces_gazes_1sec.csv", all_surfaces_gazes)
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_surfaces_fixations_1sec.csv", all_surfaces_fixations)
 
-
-function check_april_tags_for_frames(frames)
-if isempty(frames)
-    frames = CSV.read("/Users/varya/Desktop/Julia/frame_numbers_with_tokens.csv", DataFrame) |>
-    df -> transform!(df, :participant => ByRow(x-> x[1:2]) => :set) |>
-    df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session) 
-end
-    for frame in eachrow(frames)
-        surfaces_folder = replace(frame.video_path, "world.mp4" => "")
-        surfaces_folder = surfaces_folder*"exports/"
-    end
-end
