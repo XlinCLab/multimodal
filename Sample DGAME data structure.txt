@@ -1,0 +1,260 @@
+Sample DGAME data structure for 2 participants and one session:
+
+├── AUDIO
+│   ├── 12
+│   │   ├── Wortlisten
+│   │   │   ├── words_12_11.csv
+│   └── .DS_Store
+├── DGAME3_12_01
+│   ├── 000
+│   │   ├── exports
+│   │   │   ├── 001
+│   │   │   │   ├── surfaces
+│   │   │   │   │   ├── fixations_on_surface_11.csv
+│   │   │   │   │   ├── fixations_on_surface_12.csv
+│   │   │   │   │   ├── fixations_on_surface_13.csv
+│   │   │   │   │   ├── fixations_on_surface_14.csv
+│   │   │   │   │   ├── fixations_on_surface_21.csv
+│   │   │   │   │   ├── fixations_on_surface_22.csv
+│   │   │   │   │   ├── fixations_on_surface_23.csv
+│   │   │   │   │   ├── fixations_on_surface_24.csv
+│   │   │   │   │   ├── fixations_on_surface_31.csv
+│   │   │   │   │   ├── fixations_on_surface_32.csv
+│   │   │   │   │   ├── fixations_on_surface_33.csv
+│   │   │   │   │   ├── fixations_on_surface_34.csv
+│   │   │   │   │   ├── fixations_on_surface_41.csv
+│   │   │   │   │   ├── fixations_on_surface_42.csv
+│   │   │   │   │   ├── fixations_on_surface_43.csv
+│   │   │   │   │   ├── fixations_on_surface_44.csv
+│   │   │   │   │   ├── fixations_on_surface_face.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_11.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_12.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_13.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_14.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_21.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_22.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_23.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_24.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_31.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_32.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_33.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_34.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_41.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_42.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_43.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_44.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_face.csv
+│   │   │   │   │   ├── heatmap_11.png
+│   │   │   │   │   ├── heatmap_12.png
+│   │   │   │   │   ├── heatmap_13.png
+│   │   │   │   │   ├── heatmap_14.png
+│   │   │   │   │   ├── heatmap_21.png
+│   │   │   │   │   ├── heatmap_22.png
+│   │   │   │   │   ├── heatmap_23.png
+│   │   │   │   │   ├── heatmap_24.png
+│   │   │   │   │   ├── heatmap_31.png
+│   │   │   │   │   ├── heatmap_32.png
+│   │   │   │   │   ├── heatmap_33.png
+│   │   │   │   │   ├── heatmap_34.png
+│   │   │   │   │   ├── heatmap_41.png
+│   │   │   │   │   ├── heatmap_42.png
+│   │   │   │   │   ├── heatmap_43.png
+│   │   │   │   │   ├── heatmap_44.png
+│   │   │   │   │   ├── heatmap_face.png
+│   │   │   │   │   ├── marker_detections.csv
+│   │   │   │   │   ├── surf_positions_11.csv
+│   │   │   │   │   ├── surf_positions_12.csv
+│   │   │   │   │   ├── surf_positions_13.csv
+│   │   │   │   │   ├── surf_positions_14.csv
+│   │   │   │   │   ├── surf_positions_21.csv
+│   │   │   │   │   ├── surf_positions_22.csv
+│   │   │   │   │   ├── surf_positions_23.csv
+│   │   │   │   │   ├── surf_positions_24.csv
+│   │   │   │   │   ├── surf_positions_31.csv
+│   │   │   │   │   ├── surf_positions_32.csv
+│   │   │   │   │   ├── surf_positions_33.csv
+│   │   │   │   │   ├── surf_positions_34.csv
+│   │   │   │   │   ├── surf_positions_41.csv
+│   │   │   │   │   ├── surf_positions_42.csv
+│   │   │   │   │   ├── surf_positions_43.csv
+│   │   │   │   │   ├── surf_positions_44.csv
+│   │   │   │   │   ├── surf_positions_face.csv
+│   │   │   │   │   ├── surface_events.csv
+│   │   │   │   │   ├── surface_gaze_distribution.csv
+│   │   │   │   │   └── surface_visibility.csv
+│   │   │   │   ├── .DS_Store
+│   │   │   │   ├── blink_detection_report.csv
+│   │   │   │   ├── blinks.csv
+│   │   │   │   ├── export_info.csv
+│   │   │   │   ├── fixation_report.csv
+│   │   │   │   ├── fixations.csv
+│   │   │   │   ├── gaze_positions.csv
+│   │   │   │   ├── pupil_gaze_positions_info.txt
+│   │   │   │   ├── pupil_positions.csv
+│   │   │   │   ├── world.mp4
+│   │   │   │   ├── world_timestamps.csv
+│   │   │   │   └── world_timestamps.npy
+│   │   │   └── .DS_Store
+│   │   ├── offline_data
+│   │   │   ├── tokens
+│   │   │   │   ├── fixations_producer_Offline_Fixation_Detector.token
+│   │   │   │   ├── gaze_positions_consumer_Offline_Fixation_Detector.token
+│   │   │   │   ├── gaze_positions_consumer_Surface_Tracker_Offline.token
+│   │   │   │   ├── gaze_positions_consumer_Vis_Polyline.token
+│   │   │   │   ├── gaze_positions_producer_GazeFromRecording.token
+│   │   │   │   ├── pupil_positions_consumer_Offline_Blink_Detection.token
+│   │   │   │   ├── pupil_positions_consumer_Pupil_From_Recording.token
+│   │   │   │   ├── pupil_positions_consumer_System_Timelines.token
+│   │   │   │   └── pupil_positions_producer_Pupil_From_Recording.token
+│   │   │   ├── fixations.meta
+│   │   │   ├── fixations.pldata
+│   │   │   ├── fixations_stop_timestamps.npy
+│   │   │   └── fixations_timestamps.npy
+│   │   ├── .DS_Store
+│   │   ├── eye1.intrinsics
+│   │   ├── eye1.mp4
+│   │   ├── eye1_lookup.npy
+│   │   ├── eye1_timestamps.npy
+│   │   ├── gaze.pldata
+│   │   ├── gaze_timestamps.npy
+│   │   ├── info.player.json
+│   │   ├── notify.pldata
+│   │   ├── notify_timestamps.npy
+│   │   ├── pupil.pldata
+│   │   ├── pupil_timestamps.npy
+│   │   ├── square_marker_cache
+│   │   ├── surface_definitions_v01
+│   │   ├── user_info.csv
+│   │   ├── world.intrinsics
+│   │   ├── world.mp4
+│   │   ├── world_lookup.npy
+│   │   └── world_timestamps.npy
+│   └── .DS_Store
+├── DGAME3_12_02
+│   ├── 000
+│   │   ├── exports
+│   │   │   ├── 001
+│   │   │   │   ├── surfaces
+│   │   │   │   │   ├── fixations_on_surface_11.csv
+│   │   │   │   │   ├── fixations_on_surface_12.csv
+│   │   │   │   │   ├── fixations_on_surface_13.csv
+│   │   │   │   │   ├── fixations_on_surface_14.csv
+│   │   │   │   │   ├── fixations_on_surface_21.csv
+│   │   │   │   │   ├── fixations_on_surface_22.csv
+│   │   │   │   │   ├── fixations_on_surface_23.csv
+│   │   │   │   │   ├── fixations_on_surface_24.csv
+│   │   │   │   │   ├── fixations_on_surface_31.csv
+│   │   │   │   │   ├── fixations_on_surface_32.csv
+│   │   │   │   │   ├── fixations_on_surface_33.csv
+│   │   │   │   │   ├── fixations_on_surface_34.csv
+│   │   │   │   │   ├── fixations_on_surface_41.csv
+│   │   │   │   │   ├── fixations_on_surface_42.csv
+│   │   │   │   │   ├── fixations_on_surface_43.csv
+│   │   │   │   │   ├── fixations_on_surface_44.csv
+│   │   │   │   │   ├── fixations_on_surface_face.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_11.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_12.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_13.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_14.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_21.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_22.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_23.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_24.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_31.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_32.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_33.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_34.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_41.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_42.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_43.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_44.csv
+│   │   │   │   │   ├── gaze_positions_on_surface_face.csv
+│   │   │   │   │   ├── heatmap_11.png
+│   │   │   │   │   ├── heatmap_12.png
+│   │   │   │   │   ├── heatmap_13.png
+│   │   │   │   │   ├── heatmap_14.png
+│   │   │   │   │   ├── heatmap_21.png
+│   │   │   │   │   ├── heatmap_22.png
+│   │   │   │   │   ├── heatmap_23.png
+│   │   │   │   │   ├── heatmap_24.png
+│   │   │   │   │   ├── heatmap_31.png
+│   │   │   │   │   ├── heatmap_32.png
+│   │   │   │   │   ├── heatmap_33.png
+│   │   │   │   │   ├── heatmap_34.png
+│   │   │   │   │   ├── heatmap_41.png
+│   │   │   │   │   ├── heatmap_42.png
+│   │   │   │   │   ├── heatmap_43.png
+│   │   │   │   │   ├── heatmap_44.png
+│   │   │   │   │   ├── heatmap_face.png
+│   │   │   │   │   ├── marker_detections.csv
+│   │   │   │   │   ├── surf_positions_11.csv
+│   │   │   │   │   ├── surf_positions_12.csv
+│   │   │   │   │   ├── surf_positions_13.csv
+│   │   │   │   │   ├── surf_positions_14.csv
+│   │   │   │   │   ├── surf_positions_21.csv
+│   │   │   │   │   ├── surf_positions_22.csv
+│   │   │   │   │   ├── surf_positions_23.csv
+│   │   │   │   │   ├── surf_positions_24.csv
+│   │   │   │   │   ├── surf_positions_31.csv
+│   │   │   │   │   ├── surf_positions_32.csv
+│   │   │   │   │   ├── surf_positions_33.csv
+│   │   │   │   │   ├── surf_positions_34.csv
+│   │   │   │   │   ├── surf_positions_41.csv
+│   │   │   │   │   ├── surf_positions_42.csv
+│   │   │   │   │   ├── surf_positions_43.csv
+│   │   │   │   │   ├── surf_positions_44.csv
+│   │   │   │   │   ├── surf_positions_face.csv
+│   │   │   │   │   ├── surface_events.csv
+│   │   │   │   │   ├── surface_gaze_distribution.csv
+│   │   │   │   │   └── surface_visibility.csv
+│   │   │   │   ├── blink_detection_report.csv
+│   │   │   │   ├── blinks.csv
+│   │   │   │   ├── export_info.csv
+│   │   │   │   ├── fixation_report.csv
+│   │   │   │   ├── fixations.csv
+│   │   │   │   ├── gaze_positions.csv
+│   │   │   │   ├── pupil_gaze_positions_info.txt
+│   │   │   │   ├── pupil_positions.csv
+│   │   │   │   └── world.mp4.canceled
+│   │   │   └── .DS_Store
+│   │   ├── offline_data
+│   │   │   ├── tokens
+│   │   │   │   ├── fixations_producer_Offline_Fixation_Detector.token
+│   │   │   │   ├── gaze_positions_consumer_Offline_Fixation_Detector.token
+│   │   │   │   ├── gaze_positions_consumer_Surface_Tracker_Offline.token
+│   │   │   │   ├── gaze_positions_consumer_Vis_Polyline.token
+│   │   │   │   ├── gaze_positions_producer_GazeFromRecording.token
+│   │   │   │   ├── pupil_positions_consumer_Offline_Blink_Detection.token
+│   │   │   │   ├── pupil_positions_consumer_Pupil_From_Recording.token
+│   │   │   │   ├── pupil_positions_consumer_System_Timelines.token
+│   │   │   │   └── pupil_positions_producer_Pupil_From_Recording.token
+│   │   │   ├── fixations.meta
+│   │   │   ├── fixations.pldata
+│   │   │   ├── fixations_stop_timestamps.npy
+│   │   │   └── fixations_timestamps.npy
+│   │   ├── .DS_Store
+│   │   ├── eye1.intrinsics
+│   │   ├── eye1.mp4
+│   │   ├── eye1_lookup.npy
+│   │   ├── eye1_timestamps.npy
+│   │   ├── gaze.pldata
+│   │   ├── gaze_timestamps.npy
+│   │   ├── info.player.json
+│   │   ├── notify.pldata
+│   │   ├── notify_timestamps.npy
+│   │   ├── pupil.pldata
+│   │   ├── pupil_timestamps.npy
+│   │   ├── square_marker_cache
+│   │   ├── surface_definitions_v01
+│   │   ├── user_info.csv
+│   │   ├── world.intrinsics
+│   │   ├── world.mp4
+│   │   ├── world_lookup.npy
+│   │   └── world_timestamps.npy
+│   └── .DS_Store
+├── xdf
+│   ├── 12
+│   │   └── Director
+│   │       ├── dgame3_12_Director_11.xdf
+│   └── .DS_Store
+└── .DS_Store
