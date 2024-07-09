@@ -250,5 +250,3 @@ Maps detected objects to surfaces for all frames.
  Determines which surface an object belongs to in a specific frame
     - Arguments: DataFrame of frame objects, DataFrame of frame surfaces
     - Output: Updated DataFrame of frame objects with surface assignments
-
-These descriptions provide an overview of what each function expects as input and what it produces as output, which should help in understanding their roles within the larger project.
