@@ -68,3 +68,30 @@ end
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_gazes_1sec.csv", all_gazes)
 CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations_1sec.csv", all_fixations)
 
+using Printf
+
+# Function to print the folder structure
+function print_folder_structure(path::String, indent::String = "")
+    # List all files and directories in the given path
+    entries = readdir(path)
+    # Sort entries to list directories first, then files
+    sorted_entries = sort(entries, by = x -> (isdir(joinpath(path, x)) ? 0 : 1, x))
+    
+    for (i, entry) in enumerate(sorted_entries)
+        # Determine if the current entry is the last in the list
+        is_last = i == length(sorted_entries)
+        # Prepare the prefix for printing
+        prefix = is_last ? "└── " : "├── "
+        # Print the current entry
+        println(indent * prefix * entry)
+        
+        # If the entry is a directory, recursively print its contents
+        full_path = joinpath(path, entry)
+        if isdir(full_path)
+            new_indent = indent * (is_last ? "    " : "│   ")
+            print_folder_structure(full_path, new_indent)
+        end
+    end
+end
+
+print_folder_structure("/Users/varya/Desktop/Julia/sample data structure Dgame")

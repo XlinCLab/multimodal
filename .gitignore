@@ -12,7 +12,9 @@
 *.n*
 *.i*
 *.f*
-*.t*
+*.toml
+*.Text*
+*.token
 *_cache*
 *surface_definitions*
 *.z*
