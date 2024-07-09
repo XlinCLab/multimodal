@@ -39,217 +39,6 @@ Pkg.add("CSV")
 Pkg.add("DataFrames")
 ```
 
-## Functions
-
-
-1. read_intrinsics(file_path)
-
-Reads binary file contents and unpacks them using the MsgPack format.
-
-Arguments:
-
-    •	file_path::String: Path to the binary file.
-
-Returns:
-
-    •	Unpacked data.
-
-2. get_json_timestamp(participant, session, root_folder="/Users/varya/Desktop/Julia/DGAME data/")
-Extracts timestamps from a JSON file for a specific participant and session.
-Arguments:
-
-    •	participant::String: Participant ID.
-    •	session::String: Session ID.
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	Tuple containing start_time_synced_s and duration.
-
-3. read_surfaces(participant, session, data_type="fixations_on_surface", root_folder="/Users/varya/Desktop/Julia/DGAME data/")
-Reads and processes surface data for a given participant and session.
-Arguments:
-
-    •	participant::String: Participant ID.
-    •	session::String: Session ID.
-    •	data_type::String: Type of data to read (default is “fixations_on_surface”).
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	DataFrame containing the processed surface data.
-
-4. get_joint_attention_fixations(set, session)
-Combines fixation data for joint attention analysis.
-Arguments:
-
-    •	set::String: Set ID.
-    •	session::String: Session ID.
-Returns:
-
-    •	DataFrame with joint attention fixations.
-
-5. get_joint_attention_gaze_positions(set, session)
-Combines gaze position data for joint attention analysis.
-Arguments:
-
-    •	set::String: Set ID.
-    •	session::String: Session ID.
-Returns:
-
-    •	DataFrame with joint attention gaze positions.
-
-6. get_and_reannotate_words(set, session, root_folder="/Users/varya/Desktop/Julia/Roberts ET data/Dyaden_Analyse")
-Reannotates and retrieves words from audio data for a given set and session.
-Arguments:
-
-    •	set::String: Set ID.
-    •	session::String: Session ID.
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	DataFrame with reannotated words.
-
-7. get_all_surface_coordinates_for_frames(frames=DataFrame())
-Retrieves all surface coordinates for specified frames.
-Arguments:
-
-    •	frames::DataFrame: DataFrame containing frame information.
-Returns:
-
-    •	DataFrame with all surface coordinates.
-
-8. get_surface_coordinates(participant, session, framenumbers, root_folder="/Users/varya/Desktop/Julia/DGame data")
-Gets surface coordinates for specific frames.
-Arguments:
-
-    •	participant::String: Participant ID.
-    •	session::String: Session ID.
-    •	framenumbers::Vector{Int}: Frame numbers.
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	DataFrame with surface coordinates.
-
-9. get_set_fixations_for_nouns(set)
-Retrieves fixations for nouns within a specific set.
-Arguments:
-
-    •	set::String: Set ID.
-Returns:
-
-    •	DataFrame with fixations for nouns.
-
-10. read_timestamps_from_xdf(setting::String, root_folder::String="/Users/varya/Desktop/Julia/DGAME data/xdf")
-Reads timestamps from XDF files.
-Arguments:
-
-    •	setting::String: Setting ID.
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	DataFrame with timestamps.
-
-11. get_all_timestamps_xdf(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
-Retrieves all timestamps from XDF files for specified sets.
-Arguments:
-
-    •	sets::Vector{String}: Vector of set IDs.
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	DataFrame with all timestamps from XDF files.
-
-12. get_all_timestamps_json(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
-Retrieves all timestamps from JSON files for specified sets.
-Arguments:
-
-    •	sets::Vector{String}: Vector of set IDs.
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	DataFrame with all timestamps from JSON files.
-
-13. get_lag_ET(reprocess="no", root_folder="/Users/varya/Desktop/Julia/DGAME data")
-Calculates the lag between timestamps in JSON and XDF files.
-Arguments:
-
-    •	reprocess::String: Flag to reprocess data (default is “no”).
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	DataFrame with lag data.
-
-14. get_tokens_for_nouns(words=DataFrame(), root_folder="/Users/varya/Desktop/Julia/Roberts ET data/Dyaden_Analyse")
-Maps nouns to tokens.
-Arguments:
-
-    •	words::DataFrame: DataFrame containing words.
-    •	root_folder::String: Root folder path.
-Returns:
-
-    •	DataFrame with mapped tokens.
-
-15. yolo_to_pixel_center(x, y, img_width, img_height)
-Converts YOLO bounding box center coordinates to pixel coordinates.
-Arguments:
-
-    •	x::Float64: Normalized x-coordinate.
-    •	y::Float64: Normalized y-coordinate.
-    •	img_width::Int: Image width.
-    •	img_height::Int: Image height.
-Returns:
-
-    •	Tuple containing pixel coordinates (x_pixel, y_pixel).
-
-16. yolo_to_normalized_ET(x, y)
-Converts YOLO coordinates to normalized eye-tracking coordinates.
-Arguments:
-
-    •	x::Float64: Normalized x-coordinate.
-    •	y::Float64: Normalized y-coordinate.
-Returns:
-
-    •	Tuple containing normalized coordinates (x_norm, y_norm).
-
-17. transform_image_to_surface_coordinates(x, y, transform_matrix)
-Transforms image coordinates to surface coordinates.
-Arguments:
-
-    •	x::Float64: x-coordinate.
-    •	y::Float64: y-coordinate.
-    •	transform_matrix::Matrix{Float64}: Transformation matrix.
-Returns:
-
-    •	Tuple containing transformed coordinates (x_surf, y_surf).
-
-18. transform_surface_to_image_coordinates(x, y, transform_matrix)
-Transforms surface coordinates to image coordinates.
-Arguments:
-
-    •	x::Float64: x-coordinate.
-    •	y::Float64: y-coordinate.
-    •	transform_matrix::Matrix{Float64}: Transformation matrix.
-Returns:
-
-    •	Tuple containing transformed coordinates (x_img, y_img).
-
-19. parse_transformation_matrix(matrix_str)
-Parses a transformation matrix from a string.
-Arguments:
-
-    •	matrix_str::String: String representation of the matrix.
-Returns:
-
-    •	Matrix of type Matrix{Float64}.
-
-20. get_all_yolo_coordinates(labels_folder)
-Reads YOLO object detection labels and compiles them into a DataFrame.
-Arguments:
-
-    •	labels_folder::String: Path to the folder containing YOLO label files.
-Returns:
-
-    •	DataFrame with YOLO coordinates.
-
 Example Usage
 
 Here is an example of how to use some of the functions in your script:
@@ -329,3 +118,137 @@ CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations_1sec.csv", a
 
 
 ```
+## Functions
+
+
+1. `get_json_timestamp(participant, session, root_folder="/Users/varya/Desktop/Julia/DGAME data/")`
+Retrieves timestamp information from a JSON file for a specific participant and session.
+   - Arguments: participant ID, session number, root folder path
+   - Output: Tuple of (start_time_synced_s, duration) or empty Dict if file not found
+
+2. `read_timestamps_from_xdf(setting::String, root_folder::String="")`
+Reads timestamps from XDF files for a given setting and root folder.
+   - Arguments: setting string, root folder path
+   - Output: DataFrame with timestamp information for different streams
+
+3. `get_all_timestamps_xdf(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")`
+Collects all timestamps from XDF files for multiple sets.
+   - Arguments: array of set numbers, root folder path
+   - Output: DataFrame with all XDF timestamps and writes to CSV file
+
+4. `get_all_timestamps_json(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")`
+Retrieves all timestamps from JSON files for multiple sets.
+   - Arguments: array of set numbers, root folder path
+   - Output: DataFrame with all JSON timestamps and writes to CSV file
+
+5. `get_lag_ET(reprocess="no",root_folder="/Users/varya/Desktop/Julia/DGAME data")`
+Calculates the lag between eye-tracking data and other timestamps.
+   - Arguments: reprocess flag, root folder path
+   - Output: DataFrame with lag information between ET and XDF data
+
+6. `get_all_yolo_coordinates(labels_folder)`
+Reads surface data (fixations or gaze positions) for a specific participant and session.
+   - Arguments: path to labels folder
+   - Output: DataFrame with YOLO coordinates and writes to CSV file
+
+7. `read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder="")`
+Combines fixation data for director and matcher participants.
+   - Arguments: participant ID, session number, data type, root folder path
+   - Output: DataFrame with surface data (fixations or gaze positions)
+
+8. `get_joint_attention_fixations(set, session)`
+Combines gaze position data for director and matcher participants.
+   - Arguments: set number, session number
+   - Output: DataFrame with combined fixation data for director and matcher
+
+9. `get_joint_attention_gaze_positions(set, session)`
+Extracts frame information from fixation data.
+   - Arguments: set number, session number
+   - Output: DataFrame with combined gaze position data for director and matcher
+
+10. `get_frames_from_fixations(all_fixations)`
+Retrieves and processes word annotations for a specific set and session.
+    - Arguments: DataFrame of all fixations
+    - Output: DataFrame with frame numbers and video paths
+
+11. `get_and_reannotate_words(set, session, root_folder="")`
+Retrieves and processes word annotations for a specific set and session.
+    - Arguments: set number, session number, root folder path
+    - Output: DataFrame with reannotated word data
+
+12. `get_set_fixations_for_nouns(set::String, root_folder::String="", data_type::String = "fixations_on_surface")`
+Collects fixations or gaze positions related to nouns for a given set.
+    - Arguments: set number, root folder path, data type
+    - Output: DataFrame with fixations or gaze positions for nouns
+
+13. `check_april_tags_for_frames(frames)`
+Verifies and adjusts frame numbers based on April tag detection.
+    - Arguments: DataFrame of frames
+    - Output: Updated DataFrame with corrected frame numbers
+
+14. `get_all_surface_matrices_for_frames(frames=DataFrame())`
+Retrieves surface matrices for all frames in the dataset.
+    - Arguments: DataFrame of frames (optional)
+    - Output: DataFrame with surface matrices for all frames
+
+15. `get_surface_matrices(participant,session,framenumbers, root_folder="/Users/varya/Desktop/Julia/DGame data")`
+Extracts surface matrices for specific frame numbers.
+    - Arguments: participant ID, session number, array of frame numbers, root folder path
+    - Output: DataFrame with surface matrices for specified frames
+
+16. `parse_transformation_matrix(matrix_str)`
+Parses a string representation of a transformation matrix.
+    - Arguments: string representation of matrix
+    - Output: 3x3 Float64 matrix
+
+17. `transform_image_to_surface_coordinates(x, y, transform_matrix)`
+Transforms image coordinates to surface coordinates.
+    - Arguments: x and y coordinates, transformation matrix
+    - Output: Tuple of transformed (x, y) coordinates
+
+18. `transform_surface_to_image_coordinates(x, y, transform_matrix)`
+Transforms surface coordinates to image coordinates.
+    - Arguments: x and y coordinates, transformation matrix
+    - Output: Tuple of transformed (x, y) coordinates
+
+19. `transform_surface_corners(pos, matrix)`
+Transforms surface corner coordinates.
+    - Arguments: array of positions, transformation matrix
+    - Output: Array of transformed positions
+
+20. `read_intrinsics(file_path)`
+Reads intrinsic camera parameters from a binary file.
+    - Arguments: path to binary file
+    - Output: Decoded MsgPack data structure
+
+21. `get_gazes_and_fixations_by_frame_and_surface(set, surfaces_file)`
+Retrieves gaze and fixation data for specific frames and surfaces.
+    - Arguments: set number, DataFrame of surfaces
+    - Output: Tuple of (gazes DataFrame, fixations DataFrame)
+
+22. `get_all_gazes_and_fixations_by_frame(sets)`
+Collects all gaze and fixation data for multiple sets.
+    - Arguments: array of set numbers
+    - Output: Tuple of (all gazes DataFrame, all fixations DataFrame)
+
+23. `plot_surfaces(surface_coordinates)`
+Visualizes surface coordinates in a plot.
+    - Arguments: array of surface coordinates
+    - Output: Displays a plot of the surfaces
+
+24. `pixel_center_and_flip(x, y, img_width, img_height)`
+Adjusts pixel coordinates for center and flipping.
+    - Arguments: x and y coordinates, image width and height
+    - Output: Tuple of adjusted (x, y) coordinates
+
+25. `get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFrame(), root_folder="/Users/varya/Desktop/Julia/", frames=DataFrame(), img_width = 1920, img_height = 1080)`
+Maps detected objects to surfaces for all frames.
+    - Arguments: YOLO coordinates, surface positions, root folder, frames, image dimensions
+    - Output: DataFrame mapping objects to surfaces for all frames
+
+26. `get_surface_for_frame_objects(frame_objects, frame_surfaces)`
+ Determines which surface an object belongs to in a specific frame
+    - Arguments: DataFrame of frame objects, DataFrame of frame surfaces
+    - Output: Updated DataFrame of frame objects with surface assignments
+
+These descriptions provide an overview of what each function expects as input and what it produces as output, which should help in understanding their roles within the larger project.
