@@ -1,0 +1,70 @@
+DGAME data: Root Directory with all the files
+	•	AUDIO/
+	•	DyadNumber/
+	•	Wortlisten/
+	•	words_DyadNumber_11.csv: Contains lists of words used during the session. Each row represents a word, including its ID and other relevant metadata. There must be four files for each dyad: words_DyadNumber_11, words_DyadNumber_12, words_DyadNumber_21, words_DyadNumber_22. The numbers 11,12, 21, 22 correspond to sessions 01, 02, 03, 04. This is an unnecessary complication, but it was already like that, so all the functions are tailored for this naming, if you decide to change this, please check the functions.
+
+	•	DGAME3_DyadNumber_01/: 01 is a Matcher’s data
+	•	    000/: Subdirectory for session data.
+	•	    exports/: Contains exported data files.
+	•	        001/: Nested directory, I don't know why it is there, just is. It can be 000,001, 002 or 003
+
+	•	            surfaces/: Surface data related to eye-tracking. X below states for the number/name of a surface.
+
+    Files in the surfaces folder:
+	•	fixations_on_surface_X.csv: Each file contains fixation data for specific surfaces. Columns include:
+	        start_timestamp: Start time of fixation.
+	        duration: Duration in milliseconds.
+	        norm_pos_x/norm_pos_y: Normalized x and y positions of the fixation centroid.
+	        dispersion: Dispersion in degrees.
+	        confidence: Average pupil confidence.
+	        method: Type of gaze data (2D or 3D).
+	        gaze_point_3d_x/gaze_point_3d_y/gaze_point_3d_z: 3D gaze points if available.
+	        base_data: Underlying gaze data points.
+
+	•	gaze_positions_on_surface_X.csv: Contains gaze position data. Columns include:
+	            timestamp: Timestamp of the gaze data.
+	            norm_pos_x/norm_pos_y: Normalized x and y positions.
+	        	confidence: Confidence value of the gaze estimation.
+
+	•	heatmap_X.png: Heatmap images visualizing the distribution of gaze points on the surfaces.
+	•	marker_detections.csv: Data on detected markers, including their positions and timestamps.
+	•	surf_positions_X.csv: Positions of surfaces during the session.
+	•	surface_events.csv: Events related to surface interactions.
+	•	surface_gaze_distribution.csv: Distribution of gaze points across different surfaces.
+	•	surface_visibility.csv: Visibility data of surfaces during the session.
+	•	blink_detection_report.csv: Detailed report on blink detections.
+	•	blinks.csv: Blink events data.
+	•	export_info.csv: Information about the export process.
+	•	fixation_report.csv: Detailed report on fixations.
+	•	fixations.csv: General fixation data.
+	•	gaze_positions.csv: Overall gaze position data.
+	•	pupil_gaze_positions_info.txt: Info on pupil and gaze positions.
+	•	pupil_positions.csv: Data on pupil positions.
+	•	world.mp4: Video recording of the session.
+	•	world_timestamps.csv, world_timestamps.npy: Timestamps for the world video.
+
+	•	offline_data/: Contains tokens and meta files for offline processing.
+	•	tokens/: Various token files for processing data. These are configuration files for different processing modules.
+		E.g., fixations_producer_Offline_Fixation_Detector.token
+
+	•	fixations.meta, fixations.pldata: Metadata and payload data files for fixations.
+	•	fixations_stop_timestamps.npy, fixations_timestamps.npy: Stop timestamps and general timestamps for fixations.
+	•	eye1.intrinsics: Intrinsic parameters for eye camera 1, binary file.
+	•	eye1.mp4: Video from eye camera 1.
+	•	eye1_lookup.npy, eye1_timestamps.npy: Lookup and timestamp files for eye camera 1.
+	•	gaze.pldata, gaze_timestamps.npy: Gaze data and timestamps.
+	•	info.player.json: Metadata for Pupil Player.
+	•	notify.pldata, notify_timestamps.npy: Notification data and timestamps.
+	•	pupil.pldata, pupil_timestamps.npy: Pupil data and timestamps.
+	•	square_marker_cache, surface_definitions_v01: Cache and definitions for surface markers.
+	•	user_info.csv: User information file.
+	•	world.intrinsics: Intrinsic parameters for the world camera.
+	•	world.mp4, world_lookup.npy, world_timestamps.npy: World camera data, lookup, and timestamps.
+
+	•	DGAME3_DyadNumber_02/: 02 is the Director’d data, it is organized the same way as for the matcher, therefore not further presented here.
+
+	•	xdf/: Directory for XDF (Extensible Data Format) files.
+	•	    12/: Participant ID.
+	•	        Director/: somebidy called it Director, but in fact in is everything. I kept the structure as it was established.
+	•	                dgame3_12_Director_11.xdf: XDF file for the dyad. Every folder must have at least four files - one for each session.
