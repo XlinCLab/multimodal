@@ -793,6 +793,10 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
     for frame in eachrow(frames_corrected)
         #frame=eachrow(frames_corrected)[1]
         frame_objects = filter(row -> row[:frame_number] == frame.new_frame_number, yolo_coordinates)
+        if isempty(frame_objects)
+            println("No object coordinates for frame: $(frame.new_frame_number)")
+            continue
+        end
         frame_surfaces = filter(row -> row[:world_index] == frame.new_frame_number, surface_positions)
         frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
