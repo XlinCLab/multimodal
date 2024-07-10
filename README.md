@@ -1,6 +1,6 @@
 # multimodal
 
-This is a collection of scripts in Julia to preprocess the multimodal naturalistic data collected using Lab Streaming Layer. `Functions.jl` contains a collection of Julia functions designed for processing eye-tracking data, handling various data formats, and performing transformations. These functions are particularly tailored for working with data from the DGAME project. The data comes in .csv files for fixations, gazes and audio annotations, .mp4 files for video, and .xdf, .json and binaty formats for other files.
+This is a collection of scripts in Julia to preprocess the multimodal naturalistic data collected using Lab Streaming Layer and Pupil Core mobile eye-tracker. `Functions.jl` contains a collection of Julia functions designed for processing eye-tracking data, handling various data formats, and performing transformations. These functions are particularly tailored for working with data from the DGAME project. The data comes in .csv files for fixations, gazes and audio annotations, .mp4 files for video, and .xdf, .json and binaty formats for other files.
 
 The DGAME project is a naturalistic interactive experimental setting, where two participant separated by an obstacle (a 4x4 wooden shelf) have to reorder the objects on the shelf. Objects may be unique (one signgle batter per shelf) or duplicated (two identical candles). the Director has a stack of cards with pictures of the two adjacent cells of the shelf holding objects, then they have to come up with the instructions for the Matcher to move one of the objects to match the picture. Some of the cells are closed from the side of the Director, so they cannot see all the objects. In half of the trials the Director and the Matcher cannot see the faces of each other. Every pair of participants have four sessions, 10 minutes each.
 
@@ -40,23 +40,20 @@ Pkg.add("CSV")
 Pkg.add("DataFrames")
 ```
 
-Example Usage
-
-Here is an example of how to use some of the functions in your script:
+Run the pipeline: here is the script that runs the pipeline to get all fixations +- 1 sec from the noun onset, and separately target object fixations for the director and the matcher
 
 ```julia
-#get_fixations_for_words
 # this is the main script, that runs the pipeline
 include("functions.jl")
 root_folder = "/Users/varya/Desktop/Julia/"
+labels_folder = "/Users/varya/Desktop/Python/yoloo/yolo7Test/data/results/output/labels"
 
 # every set has two participants and four sessions
 sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
+surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
 
 #Read all the Lab Streaming Layer timestamps from .xdf files and aggregate them in one table
-get_all_timestamps_from_xdf(sets, root_folder)
-#Read all the eye-tracker timestamps from .json files from the eye-tracker raw data for the director and the matcher and aggregate them in one table
-get_all_timestamps_json(sets, root_folder)
+get_all_timestamps_xdf(sets, root_folder)
 
 #Get all the frames of interest (200 milliseconds primary to the noun onset
 #check if all the april tags are recognized, if not
@@ -75,6 +72,7 @@ redirect_stdout(log_file) do
         fixations = get_set_fixations_for_nouns(set)
         all_fixations = vcat(all_fixations, fixations)
     end
+    CSV.write("/Users/varya/Desktop/Julia/all_fixations.csv", all_fixations)
 end
 close(log_file)
 # get frames of interest (200 ms before the noun onset)
@@ -84,7 +82,7 @@ frames_corrected = check_april_tags_for_frames(frames)
 
 # get all transformation matrices for all frames in one aggregated table
 #it will be written to a cvs file "all_surface_matrices.csv"
-surface_positions = get_all_surface_matrices_for_frames(frames)
+surface_positions = get_all_surface_matrices_for_frames(frames_corrected)
 
 #Get all coordinates for all recognized objects for all frames and write them to one dataset
 #it will be written to a cvs file "all_yolo_coordinates.csv"
@@ -94,7 +92,7 @@ yolo_coordinates = get_all_yolo_coordinates(labels_folder)
 #Read the audio transcription, select the target object mentions, tokenize all nouns (participant can call the same object with different words)
 #Read all surface fixations files, clean by surface, combine into one dstaset, align timelines, filter by +- n milliseconds from target noun onset
 #At the moment tjis is +- 1 sec from the word onset
-all_surfaces_gazes, all_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
+all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
 
 #get all surfaces for all recogized objects for every frame and write the aggregated table to a csv file
 #it will be written to a cvs file "all_frame_objects.csv"
@@ -106,17 +104,15 @@ all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_posit
 
 #Get all the fixations for target objects only 
 #(for the object called in the current noun, 1 sec before and after noun onset)
-all_gazes = DataFrame()
-all_fixations = DataFrame()
+target_gazes = DataFrame()
+target_fixations = DataFrame()
 for set in sets
     gazes, fixations = get_gazes_and_fixations_by_frame_and_surface(set, all_frame_objects)
-    all_gazes = vcat(all_gazes, gazes)
-    all_fixations = vcat(all_fixations, fixations)
+    target_gazes = vcat(all_gazes, gazes)
+    target_fixations = vcat(all_fixations, fixations)
 end   
-CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_gazes_1sec.csv", all_gazes)
-CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/all_fixations_1sec.csv", all_fixations)
-
-
+CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/target_gazes_1sec.csv", target_gazes)
+CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/target_fixations_1sec.csv", target_fixations)
 
 ```
 ## Functions

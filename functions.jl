@@ -152,7 +152,6 @@ function get_lag_ET(reprocess="no",root_folder="/Users/varya/Desktop/Julia/DGAME
 end
 
 function get_all_yolo_coordinates(labels_folder)
-    labels_folder = "/Users/varya/Desktop/Python/yoloo/yolo7Test/data/results/output/labels"
     object_names=Dict([(0,"batterie"), (1,"blume"), (2,"creme"), (3,"kerze") ,(4, "spritze"), (5,"tasse"),(6,"tube"), (7,"vase")])
     all_yolo_coordinates = DataFrame(
            frame_number = Int[],
@@ -184,9 +183,9 @@ function get_all_yolo_coordinates(labels_folder)
                 push!(all_yolo_coordinates, (frame_number,set,session, object, x, y, w, h))
             end
         end
-       CSV.write("all_yolo_coordinates.csv", all_yolo_coordinates)
-       return all_yolo_coordinates
     end
+    CSV.write("all_yolo_coordinates.csv", all_yolo_coordinates)
+    return all_yolo_coordinates
 end
 
 #functions that read words, gazes, fixations and create a framelist with tokens
@@ -331,8 +330,9 @@ function get_frames_from_fixations(all_fixations)
         #row=eachrow(frame_numbers)[1]
         session = lpad(row.session,2,"0")
         session = surface_sessions[session]
-        row.video_path = joinpath(root_folder, "DGAME3_"*row.participant, session , "world.mp4")
+        row.video_path = joinpath(root_folder, "DGAME data/DGAME3_"*row.participant, session , "world.mp4")
     end
+    return frame_numbers
 end
 
 #write face visibility
@@ -502,10 +502,17 @@ function check_april_tags_for_frames(frames)
         df -> transform!(df, :participant => ByRow(x-> x[1:2]) => :set) |>
         df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session)
         frames.new_frame_number = zeros(Int,size(frames, 1))
+    else
+        frames.new_frame_number = zeros(Int,size(frames, 1))
     end
     videos = unique(frames.video_path)
     for video in videos
         surfaces_folder = joinpath(replace(video, "world.mp4" => ""),"exports")
+        if !isdir(surfaces_folder)
+            println(surfaces_folder)
+            println("No surfaces for this session: $video")
+            continue
+        end
         subfolders = [f for f in readdir(surfaces_folder ) if isdir(joinpath(surfaces_folder, f))]
         if subfolders[1]=="surfaces"
             surface_folder = joinpath(surfaces_folder, subfolders[1])
@@ -545,12 +552,12 @@ end
 
 
 function get_all_surface_matrices_for_frames(frames=DataFrame())
-    root_folder="/Users/varya/Desktop/Julia/"
     if isempty(frames)
-        frames=CSV.read(joinpath(root_folder,"frame_numbers_with_tokens.csv"), DataFrame) 
+        frames=CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv"), DataFrame) 
         println("frames read from file")
     end
-    frames_sets_and_sessions =  select(frames, [:participant, :session, :frame_number]) |> unique 
+    frames_sets_and_sessions =  select(frames, [:participant, :session, :new_frame_number]) |> unique |>
+        df -> transform!(df, :new_frame_number => ByRow(x-> x) => :frame_number)
     sets_and_sessions = select(frames_sets_and_sessions, [:participant, :session]) |> unique
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])  
     all_surface_coordinates = DataFrame(
@@ -581,7 +588,7 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
         all_surface_coordinates = vcat(all_surface_coordinates, surface_coordinates)
     end
     CSV.write("all_surface_matrices.csv", all_surface_coordinates)
-    #test_coords=get_surface_coordinates("12_01", "003", [100,200,6888])
+    return all_surface_coordinates
 end
 
 function get_surface_matrices(participant,session,framenumbers, root_folder="/Users/varya/Desktop/Julia/DGame data")
@@ -759,7 +766,7 @@ function pixel_center_and_flip(x, y, img_width, img_height)
     
     return x, new_y
 end
-function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFrame(), root_folder="/Users/varya/Desktop/Julia/", frames=DataFrame(), img_width = 1920, img_height = 1080)
+function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames, img_width, img_height)
     #root_folder="/Users/varya/Desktop/Julia/"
     if isempty(frames)
         frames=CSV.read(joinpath(root_folder,"frame_numbers_with_tokens.csv"), DataFrame) 
