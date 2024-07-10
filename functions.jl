@@ -665,8 +665,7 @@ end
 function transform_surface_to_image_coordinates(x, y, transform_matrix)
     pos_homogenous = [x, y, 1] # Add homogenous coordinate
     #it looks like transposition brings image coorinate, non-transposed matrix brings normalized image coordinates
-    #result_homogenous =  transpose(transform_matrix) * pos_homogenous # Actual transform
-    result_homogenous =  transform_matrix * pos_homogenous # Actual transform
+    result_homogenous =  transpose(transform_matrix) * pos_homogenous # Actual transform
     result_homogenous .= result_homogenous ./ result_homogenous[end]  # normalize
     new_pos = result_homogenous[1:end-1]  # projection
     return new_pos[1], new_pos[2]
@@ -766,10 +765,9 @@ function pixel_center_and_flip(x, y, img_width, img_height)
     
     return x, new_y
 end
-function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames, img_width, img_height)
-    #root_folder="/Users/varya/Desktop/Julia/"
-    if isempty(frames)
-        frames=CSV.read(joinpath(root_folder,"frame_numbers_with_tokens.csv"), DataFrame) 
+function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, img_width, img_height)
+    if isempty(frames_corrected)
+        frames_corrected=CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv"), DataFrame) 
         println("frames read from file")
     end
 
@@ -792,69 +790,37 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
     # now make a file with a map - frame,object,surface
     #assume, we have all the GOOD frames - with 6 April tages recognized
     all_frame_objects = DataFrame()
-    for frame in eachrow(frames)
-        frame_objects = filter(row -> row[:frame_number] == frame.frame_number, yolo_coordinates)
-        frame_surfaces = filter(row -> row[:world_index] == frame.frame_number, surface_positions)
-        frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces)
+    for frame in eachrow(frames_corrected)
+        #frame=eachrow(frames_corrected)[1]
+        frame_objects = filter(row -> row[:frame_number] == frame.new_frame_number, yolo_coordinates)
+        frame_surfaces = filter(row -> row[:world_index] == frame.new_frame_number, surface_positions)
+        frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
 
     end
+    CSV.write("all_frame_objects_surfaces.csv", all_frame_objects)
     return all_frame_objects
 end
 
-function get_surfaces_for_all_objects(yolo_coordinates, surface_positions=DataFrame(), root_folder="/Users/varya/Desktop/Julia/", frames=DataFrame(), img_width = 1920, img_height = 1080)
-    #root_folder="/Users/varya/Desktop/Julia/"
-    if isempty(frames)
-        frames=CSV.read(joinpath(root_folder,"frame_numbers_with_tokens.csv"), DataFrame) 
-        println("frames read from file")
-    end
-
-    if isempty(surface_positions)
-        data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
-        surface_positions =  DataFrame()
-        for (i, surf_name) in enumerate(surf_names)
-            surface_positions[!, Symbol(surf_name)] = data[i]
-        end
-    end
-    if isempty(yolo_coordinates)
-        yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv"), DataFrame) |> 
-        df -> filter!(row -> row[:set] != NaN, df)|>
-        df -> transform!(df, :x => ByRow(x -> x*img_width) => :x)|>
-        df -> transform!(df, :w => ByRow(x -> x*img_width) => :w)|>
-        df -> transform!(df, :y => ByRow(x -> x*img_height) => :y)|>
-        df -> transform!(df, :h => ByRow(x -> x*img_height) => :h)
-        println("yolo_coordinates read from file")
-    end
-    # now make a file with a map - frame,object,surface
-    #assume, we have all the GOOD frames - with 6 April tages recognized
-    all_frame_objects = DataFrame()
-    for frame in eachrow(frames)
-        frame_objects = filter(row -> row[:frame_number] == frame.frame_number, yolo_coordinates)
-        frame_surfaces = filter(row -> row[:world_index] == frame.frame_number, surface_positions)
-        frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces)
-        all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
-
-    end
-    CSV.write("all_frame_objects.csv", all_frame_objects)
-    return all_frame_objects
-end
-
-function get_surface_for_frame_objects(frame_objects, frame_surfaces)
+function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
     #this function is work in progress
     # Select the relevant row based on world_index (frame number)
     corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
+    center = [0.5, 0.5]
     frame_objects.surface_number = fill("outside all", nrow(frame_objects))
     for object in eachrow(frame_objects)
-        #object = eachrow(frame_objects)[1]
+        object.x, object.y, object.w, object.h =  transform_yolo_to_pixels(object.x, object.y, object.w, object.h,img_width, img_height)
         println("Object: $(object.object), x: $(object.x), y: $(object.y)")
         for surface in eachrow(frame_surfaces)
-            #surface = eachrow(frame_surfaces)[1]
-            println("checking surface: $(surface.surface)")
             # Extract the transformation matrix
             surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
             surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+            surface_center = transform_surface_to_image_coordinates(center[1], center[2], surf_to_img_trans)
+            println("Surface $(surface.surface) center:")
+            println("x: $(surface_center[1]), y: $(surface_center[2])")
             #check if object is inside the surface
-            if object.x > minimum(surface_corners[:, 1]) && object.x < maximum(surface_corners[:, 1]) && object.y > minimum(surface_corners[:, 2]) && object.y < maximum(surface_corners[:, 2])
+            min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
+            if object.x >= min_x && object.x <= max_x && object.y >= min_y && object.y <=max_y
                 object.surface_number = surface.surface
                 println("Object is inside surface: $(surface.surface)")
                 continue
@@ -866,10 +832,10 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces)
                 object_y = object.y + object.h/2
                 surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
                 surface_corners = transform_surface_corners(corners, surf_to_img_trans)
-                surface_limits=(minimum(surface_corners[:, 1]),maximum(surface_corners[:, 1]),minimum(surface_corners[:, 2]),maximum(surface_corners[:, 2]))
+                min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
                 println("Surface $(surface.surface) limits:")
-                print(surface_limits)
-                if object.x > minimum(surface_corners[:, 1]) && object.x < maximum(surface_corners[:, 1]) && object_y > minimum(surface_corners[:, 2]) && object_y < maximum(surface_corners[:, 2])
+                println("min_x: $min_x, max_x: $max_x, min_y: $min_y, max_y: $max_y")
+                if object.x >= min_x && object.x <= max_x && object_y >= min_y && object_y <=max_y
                     object.surface_number = surface.surface
                     println("Object is inside surface: $(surface.surface)")
                     continue
@@ -894,6 +860,13 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces)
     return frame_objects
 end
 
+function transform_yolo_to_pixels(x,y,w,h,img_height,img_width)
+    new_x = x*img_width
+    new_w = w*img_width
+    new_y = y*img_height
+    new_h = h*img_height
+    return new_x, new_y, new_w, new_h
+end
 function print_folder_structure(path::String, indent::String = "")
     # List all files and directories in the given path
     entries = readdir(path)

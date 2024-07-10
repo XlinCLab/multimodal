@@ -55,10 +55,12 @@ all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixat
 #surface_positions is a table with all the surfaces and their positions that we have put into "all_surface_matrices.csv"
 img_width = 1920
 img_height = 1080
-all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames, img_width, img_height)
+all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, img_width, img_height)
 
 #Get all the fixations for target objects only 
 #(for the object called in the current noun, 1 sec before and after noun onset)
+
+#this will not work before new rercognized frames are ready
 target_gazes = DataFrame()
 target_fixations = DataFrame()
 for set in sets
