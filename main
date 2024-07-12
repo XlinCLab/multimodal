@@ -1,7 +1,7 @@
 # this is the main script, that runs the pipeline
 include("functions.jl")
 root_folder = "/Users/varya/Desktop/Julia/"
-labels_folder = "/Users/varya/Desktop/Python/yoloo/yolo7Test/data/results/output/labels"
+labels_folder = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/labels"
 
 # every set has two participants and four sessions
 sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
