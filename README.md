@@ -48,8 +48,8 @@ Run the pipeline: here is the script that runs the pipeline to get all fixations
 ```julia
 # this is the main script, that runs the pipeline
 include("functions.jl")
-root_folder = "/Users/varya/Desktop/Julia/"
-labels_folder = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/labels"
+root_folder = ""
+labels_folder = "labels"
 
 # every set has two participants and four sessions
 sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
@@ -75,7 +75,7 @@ redirect_stdout(log_file) do
         fixations = get_set_fixations_for_nouns(set)
         all_fixations = vcat(all_fixations, fixations)
     end
-    CSV.write("/Users/varya/Desktop/Julia/all_fixations.csv", all_fixations)
+    CSV.write("all_fixations.csv", all_fixations)
 end
 close(log_file)
 # get frames of interest (200 ms before the noun onset)
@@ -84,9 +84,9 @@ frames = get_frames_from_fixations(all_fixations)
 frames_corrected = check_april_tags_for_frames(frames)
 
 #read from file if needed, CSV package cannot handle surface transformation matrices, so use TextParse
-frames_corrected = CSV.read("/Users/varya/Desktop/Julia/frame_numbers_corrected_with_tokens.csv", DataFrame)
+frames_corrected = CSV.read("frame_numbers_corrected_with_tokens.csv", DataFrame)
 if isempty(surface_positions)
-    data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
+    data, surf_names = TextParse.csvread("all_surface_matrices.csv")
     surface_positions =  DataFrame()
     for (i, surf_name) in enumerate(surf_names)
         surface_positions[!, Symbol(surf_name)] = data[i]
@@ -111,7 +111,7 @@ At the moment trial is +- 1 sec from the word onset
 
 ```julia
 all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
-yolo_output_path = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output"
+yolo_output_path = "path/to/yolo/output"
 image_sizes = collect_image_dimensions(yolo_output_path)
 ```
 
@@ -138,13 +138,11 @@ for set in sets
     target_gazes = vcat(all_gazes, gazes)
     target_fixations = vcat(all_fixations, fixations)
 end   
-CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/target_gazes_1sec.csv", target_gazes)
-CSV.write("/Users/varya/Desktop/Julia/Roberts ET data/target_fixations_1sec.csv", target_fixations)
 
 #if something is wrong with the coordinates, you can try plot surfaces to find out
 # e.g.for this particular frame there are no surfaces provided by the Pupil Core plugin
 surface_coordinates=get_all_surfaces_for_a_frame(19787, frame_surfaces)
-plot_surfaces(surface_coordinates, img_width, img_height, "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/set05_01_session2_frame_9690.jpg")
+plot_surfaces(surface_coordinates, img_width, img_height, "path/to/the/frame.jpg")
 
 ```
 ## Functions
