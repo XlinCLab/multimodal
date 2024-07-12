@@ -8,7 +8,7 @@
 #Pkg.add("LinearAlgebra")
 #Pkg.add("TextParse")
 #Pkg.add("MsgPack")
-
+using FileIO
 using Printf
 Base.show(io::IO, f::Float64) = @printf(io, "%.2f", f)
 using XDF
@@ -19,6 +19,8 @@ using CSV
 using JSON
 using LinearAlgebra
 using TextParse
+using CairoMakie
+using Images
 
 # functions that create aggregated tables with timestamps, lags and coordinates
 function get_json_timestamp(participant, session, root_folder="/Users/varya/Desktop/Julia/DGAME data/")
@@ -169,9 +171,9 @@ function get_all_yolo_coordinates(labels_folder)
             data = readlines(joinpath(labels_folder, file))
             for line in data
                 object = split(line, " ")[1]
-                set=split(file, "_")[1]
+                set=replace(split(file, "_")[1], "set" => "")
                 if length(split(file, "_"))>2
-                    session=string(split(file, "_")[3][1])
+                    session=replace(split(file, "_")[3],"session" => "")
                 else
                     session="0"
                 end
@@ -736,26 +738,6 @@ function get_all_gazes_and_fixations_by_frame(sets)
     return all_gazes, all_fixations
 end
 
-function plot_surfaces(surface_coordinates)
-    # Create a figure and axis for plotting with specified resolution
-    fig = Figure(resolution = (1920, 1080))
-    ax = Axis(fig[1, 1])
-    xlims!(ax, 0, 1920)
-    ylims!(ax, 1080, 0)
-    # Plot each surface
-    for surface in surface_coordinates
-        surface_name = surface[1]
-        println("Plotting surface: $surface_name, with corners: ")
-        println(surface[2])
-        surface_corners = surface[2]
-        # Extracting the first two elements from each 4-element tuple and converting to Point2f
-        preprocessed_coords = [(row[1], row[2])  for row in eachrow(surface_corners)]
-        poly!(ax, Point2f.(preprocessed_coords), color = :white, strokecolor = :black, strokewidth = 1)
-    end
-    # Display the figure
-    display(fig)
-end
-
 function pixel_center_and_flip(x, y, img_width, img_height)
     # Assuming x and y are in pixel center coordinates
     # Flip horizontally
@@ -765,7 +747,7 @@ function pixel_center_and_flip(x, y, img_width, img_height)
     
     return x, new_y
 end
-function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, img_width, img_height)
+function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected,image_sizes)
     if isempty(frames_corrected)
         frames_corrected=CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv"), DataFrame) 
         println("frames read from file")
@@ -779,25 +761,32 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
         end
     end
     if isempty(yolo_coordinates)
-        yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv"), DataFrame) |> 
-        df -> filter!(row -> row[:set] != NaN, df)|>
-        df -> transform!(df, :x => ByRow(x -> x*img_width) => :x)|>
-        df -> transform!(df, :w => ByRow(x -> x*img_width) => :w)|>
-        df -> transform!(df, :y => ByRow(x -> x*img_height) => :y)|>
-        df -> transform!(df, :h => ByRow(x -> x*img_height) => :h)
+        yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv"), DataFrame) 
         println("yolo_coordinates read from file")
+    end
+    if isempty(image_sizes)
+        image_sizes = CSV.read(joinpath(root_folder,"image_sizes.csv"), DataFrame) 
+        println("image_sizes read from file")
     end
     # now make a file with a map - frame,object,surface
     #assume, we have all the GOOD frames - with 6 April tages recognized
     all_frame_objects = DataFrame()
     for frame in eachrow(frames_corrected)
-        #frame=eachrow(frames_corrected)[1]
-        frame_objects = filter(row -> row[:frame_number] == frame.new_frame_number, yolo_coordinates)
+        #frame=eachrow(frames_corrected)[2554]
+        set = frame.participant[1:2]
+        current_size= filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == string(frame.session), image_sizes)
+        if isempty(current_size)
+            println("No image size for frame: $(frame.new_frame_number)")
+            continue
+        end
+        img_width, img_height = current_size.image_width[1], current_size.image_height[1]
+        set = parse(Int, set)
+        frame_objects = filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, yolo_coordinates)
         if isempty(frame_objects)
             println("No object coordinates for frame: $(frame.new_frame_number)")
             continue
         end
-        frame_surfaces = filter(row -> row[:world_index] == frame.new_frame_number, surface_positions)
+        frame_surfaces = filter(row -> row[:world_index] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session && row[:surface] != "face", surface_positions)
         frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
 
@@ -820,8 +809,8 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
             surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
             surface_corners = transform_surface_corners(corners, surf_to_img_trans)
             surface_center = transform_surface_to_image_coordinates(center[1], center[2], surf_to_img_trans)
-            println("Surface $(surface.surface) center:")
-            println("x: $(surface_center[1]), y: $(surface_center[2])")
+                #println("Surface $(surface.surface) center:")
+                 #println("x: $(surface_center[1]), y: $(surface_center[2])")
             #check if object is inside the surface
             min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
             if object.x >= min_x && object.x <= max_x && object.y >= min_y && object.y <=max_y
@@ -831,7 +820,7 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
             end
         end
              #if an object center is outside all, try lower center
-        if object.surface_number == "outside all"
+        if object.surface_number == "outside all" 
             for surface in eachrow(frame_surfaces)
                 object_y = object.y + object.h/2
                 surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
@@ -864,7 +853,7 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
     return frame_objects
 end
 
-function transform_yolo_to_pixels(x,y,w,h,img_height,img_width)
+function transform_yolo_to_pixels(x,y,w,h,img_width,img_height)
     new_x = x*img_width
     new_w = w*img_width
     new_y = y*img_height
@@ -892,4 +881,93 @@ function print_folder_structure(path::String, indent::String = "")
             print_folder_structure(full_path, new_indent)
         end
     end
+end
+function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write_to_file=false)
+    #this function is work in progress
+    img_width = 1024
+    img_height = 768
+
+    # Select the relevant row based on world_index (frame number)
+    frame_surfaces = set_surface_positions[set_surface_positions.world_index .== frame_number, :]
+    surface_coords = Dict()
+    for surface in eachrow(frame_surfaces)
+        #surface = eachrow(frame_surfaces)[1]
+        println("checking surface: $(surface.surface)")
+        # Extract the transformation matrix
+        transform_matrix=parse_transformation_matrix(surface.surf_to_dist_img_trans)
+        corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
+        corners_coords = test_coordinates = transform_surface_corners(corners,  transform_matrix)
+        surface_coords[surface.surface] = corners_coords
+    end
+    if write_to_file
+        CSV.write("surface_coords_$frame_number.csv", surface_coords)
+    end
+    return surface_coords
+end
+
+#CairoMakie flips the background image for whatever reason
+function plot_surfaces(surface_coordinates, img_width, img_height, background_image_path)
+    img = FileIO.load(background_image_path)
+    img = rotl90(img)
+    # Create a figure and axis for plotting with specified resolution
+    fig = Figure(resolution = (img_width, img_height))
+    ax = Axis(fig[1, 1])
+    # Set the image as the background
+    image!(ax, img, scale_to_fit=true, align = (0, 0))
+    xlims!(ax, 0, img_width)
+    ylims!(ax, img_height, 0)
+    # Plot each surface
+    for surface in surface_coordinates
+        surface_name = surface[1]
+        println("Plotting surface: $surface_name, with corners: ")
+        println(surface[2])
+        surface_corners = surface[2]
+        # Extracting the first two elements from each 4-element tuple and converting to Point2f
+        preprocessed_coords = [(row[1], row[2])  for row in eachrow(surface_corners)]
+        poly!(ax, Point2f.(preprocessed_coords), color = :transparent, strokecolor = :black, strokewidth = 1)
+    end
+    # Display the figure
+    display(fig)
+end
+
+using FileIO
+using DataFrames
+using Images
+
+function collect_image_dimensions(recognized_images_folder_path::String)
+    # Get a list of all files in the folder
+    files = filter(f -> occursin(r"\.jpg$", f), readdir(recognized_images_folder_path, join=true))
+    # Initialize an empty DataFrame
+    image_sizes = DataFrame(
+        frame_number = Int[],
+        set = String[],
+        session = String[],
+        image_width = Int[],
+        image_height = Int[]
+    )
+ for file in files
+        filename = basename(file)
+        frame_number = parse(Int, split(filename, "_")[end] |> x -> split(x, ".")[1])
+        set=replace(split(filename, "_")[1], "set" => "")
+        if length(split(filename, "_"))>2
+            session=replace(split(filename, "_")[3],"session" => "")
+        else
+            session="0"
+        end
+
+        try
+            # Load the image
+            img = load(file)
+            # Check if the file is an image
+                # Get the dimensions of the image
+                width, height = size(img)[2], size(img)[1]
+                # Append the information to the DataFrame
+                push!(image_sizes, (frame_number,set,session, width, height))
+        catch e
+            # Handle the case where the file is not an image
+            println("Skipping file $file: $e")
+        end
+    end
+    CSV.write("/Users/varya/Desktop/Julia/image_sizes.csv", image_sizes)
+    return image_sizes
 end
