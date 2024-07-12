@@ -38,6 +38,9 @@ Pkg.add("TextParse")
 Pkg.add("MsgPack")
 Pkg.add("CSV")
 Pkg.add("DataFrames")
+Pkg.add("CairoMakie")
+Pkg.add("Images")
+Pkg.add("Printf")
 ```
 
 Run the pipeline: here is the script that runs the pipeline to get all fixations +- 1 sec from the noun onset, and separately target object fixations for the director and the matcher
