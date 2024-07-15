@@ -58,29 +58,27 @@ surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "00
 #Read all the Lab Streaming Layer timestamps from .xdf files and aggregate them in one table
 get_all_timestamps_xdf(sets, root_folder)
 ```
-Get all the frames of interest (200 milliseconds primary to the noun onset:
+Get all the frames of interest (200 milliseconds primary to the noun onset):
 check if all the april tags are recognized, if not, get a frame with maximum april tags from 1 sec to the noun onset period
+get all the fixations for the time period of interest for all participants:
+Read the audio transcription, select the target object mentions, tokenize all nouns (participant can call the same object with different words)
+Read all surface fixations files, clean by surface, combine into one dstaset, align timelines, filter by +- n milliseconds from target noun onset
+At the moment tjis is +- 1 sec from the word onset
 
 ```julia
 # Open a log file for writing
 log_file = open("combine_fixations_by_nouns.log", "w")
 # Redirect stdout to the log file
-redirect_stdout(log_file) do
+redirect_stdout(log_file)
     @info "This is the log file of the processing of the fixations by nouns, you can find all the missing values and errors here"
-    # get all the fixations for all participants I have
-    all_fixations = DataFrame()
-    for set in sets
-        println("set $set")
-        #it would be great to make time limits function arguments
-        fixations = get_set_fixations_for_nouns(set)
-        all_fixations = vcat(all_fixations, fixations)
-    end
-    CSV.write("all_fixations.csv", all_fixations)
-end
+all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
+# Yolo may change image size deleting the black borders, so we need to check the image sizes
 close(log_file)
+
 # get frames of interest (200 ms before the noun onset)
 frames = get_frames_from_fixations(all_fixations)
 #correct frame numbers according to april tags recognized
+#get a frame with maximum april tags from 1 sec to the noun onset period
 frames_corrected = check_april_tags_for_frames(frames)
 
 #read from file if needed, CSV package cannot handle surface transformation matrices, so use TextParse
@@ -131,13 +129,7 @@ all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_posit
 #Get all the fixations for target objects only 
 #(for the object called in the current noun, 1 sec before and after noun onset)
 
-target_gazes = DataFrame()
-target_fixations = DataFrame()
-for set in sets
-    gazes, fixations = get_gazes_and_fixations_by_frame_and_surface(set, all_frame_objects)
-    target_gazes = vcat(all_gazes, gazes)
-    target_fixations = vcat(all_fixations, fixations)
-end   
+target_gazes, target_fixations =  get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)  
 
 #if something is wrong with the coordinates, you can try plot surfaces to find out
 # e.g.for this particular frame there are no surfaces provided by the Pupil Core plugin

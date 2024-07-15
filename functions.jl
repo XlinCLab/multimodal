@@ -692,36 +692,31 @@ function read_intrinsics(file_path)
     return data
 end
 
-function get_gazes_and_fixations_by_frame_and_surface(set, surfaces_file)
-    #set = "04"
+function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations, gazes_file="", fixations_file="")
     #get the gazes and fixations for the surface
-    surfaces_1 = select(surfaces_file, [:frame_number, :token, :set, :session, :surface])
-    surfaces_2 = select(surfaces_file, [:frame_number, :token, :set, :session, :surface2]) |>
-    df -> rename!(df, :surface2 => :surface) |>
-    df -> filter(row -> row[:surface]!= "", df)
-    surfaces = vcat(surfaces_1, surfaces_2)
+    surfaces = rename(all_frame_objects, :object => :token, :surface_number => :surface) |>
+    df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) |>
+    df -> transform(df, :session =>ByRow(x-> lpad(x, 2, "0")) => :session)
 
-    if set in unique(surfaces.set)
-        fixations = get_set_fixations_for_nouns(set) |>
-        df -> rename!(df, :noun => :token) |>
-        df -> select!(df, [:participant, :time_corrected, :noun_time, :fixation_id, :face, :frame_number, :set, :session, :token, :surface])
-        fixations = innerjoin(fixations, surfaces, on = [ :frame_number, :set, :session, :token, :surface]) |> unique
-        fixations.diff_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(fixations)]
+    if isempty(all_trial_surfaces_gazes) && gazes_file != ""
+        gazes = CSV.read(gazes_file, DataFrame) |>
+        df -> rename(df, :noun => :token) |>
+        df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) 
     else
-        fixations = DataFrame()
-    end     
-    
-    # gazes have different frame numbers
-    if set in unique(surfaces.set)
-        gazes = get_set_fixations_for_nouns(set, "","gaze_positions_on_surface") |>
-        df -> rename!(df, :noun => :token)
-        gazes = innerjoin(gazes, surfaces, on = [:frame_number, :set, :session, :token, :surface])
-        gazes.diff_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(gazes)]
-    else
-        gazes = DataFrame()
+        gazes =  rename(all_trial_surfaces_gazes, :noun => :token) |>
+        df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) 
     end
-
-    return gazes, fixations
+    if isempty(all_trial_surfaces_fixations) && fixations_file != ""
+        fixations = CSV.read(fixations_file, DataFrame) |>
+        df -> rename(df, :object => :token) |>
+        df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) 
+    else
+        fixations = rename(all_trial_surfaces_fixations, :noun => :token) |>
+        df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set)
+    end
+    target_gazes = innerjoin(gazes, surfaces, on = [:frame_number, :set, :session, :token, :surface])
+    target_fixations = innerjoin(fixations, surfaces, on = [:frame_number, :set, :session, :token, :surface])
+    return target_gazes, target_fixations
 end
 
 function get_all_gazes_and_fixations_by_frame(sets)
@@ -735,6 +730,8 @@ function get_all_gazes_and_fixations_by_frame(sets)
     end
     all_fixations.trial_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(all_fixations)]
     all_gazes.trial_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(all_gazes)]
+    CSV.write("all_trial_gazes.csv", all_gazes)
+    CSV.write("all_trial_fixations.csv", all_fixations)
     return all_gazes, all_fixations
 end
 
@@ -772,15 +769,16 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
     #assume, we have all the GOOD frames - with 6 April tages recognized
     all_frame_objects = DataFrame()
     for frame in eachrow(frames_corrected)
-        #frame=eachrow(frames_corrected)[2554]
+        #frame=eachrow(frames_corrected)[2433]
         set = frame.participant[1:2]
-        current_size= filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == string(frame.session), image_sizes)
+        set = parse(Int, set)
+        current_size= filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, image_sizes)
         if isempty(current_size)
             println("No image size for frame: $(frame.new_frame_number)")
             continue
         end
         img_width, img_height = current_size.image_width[1], current_size.image_height[1]
-        set = parse(Int, set)
+        
         frame_objects = filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, yolo_coordinates)
         if isempty(frame_objects)
             println("No object coordinates for frame: $(frame.new_frame_number)")
@@ -788,6 +786,8 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
         end
         frame_surfaces = filter(row -> row[:world_index] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session && row[:surface] != "face", surface_positions)
         frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
+        frame_object_with_surfaces.corected_frame_number = fill(frame.new_frame_number, nrow(frame_object_with_surfaces))
+        frame_object_with_surfaces.frame_number = fill(frame.frame_number, nrow(frame_object_with_surfaces))
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
 
     end
