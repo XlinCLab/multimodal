@@ -930,10 +930,6 @@ function plot_surfaces(surface_coordinates, img_width, img_height, background_im
     display(fig)
 end
 
-using FileIO
-using DataFrames
-using Images
-
 function collect_image_dimensions(recognized_images_folder_path::String)
     # Get a list of all files in the folder
     files = filter(f -> occursin(r"\.jpg$", f), readdir(recognized_images_folder_path, join=true))

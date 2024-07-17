@@ -108,7 +108,6 @@ At the moment trial is +- 1 sec from the word onset
 !NB Yolo may change image size deleting the black borders, so we need to check the image sizes
 
 ```julia
-all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
 yolo_output_path = "path/to/yolo/output"
 image_sizes = collect_image_dimensions(yolo_output_path)
 ```
