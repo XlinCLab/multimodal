@@ -31,8 +31,8 @@ function get_json_timestamp(participant, session, root_folder="/Users/varya/Desk
     try
         JSON.parsefile(session_file)
     catch e
-        println("No json file for $set for this session: $session")
-        return Dict()
+        println("No json file for $participant for this session: $session")
+        return (0,0)
     end
     info= JSON.parsefile(session_file)
     start_time_synced_s = info["start_time_synced_s"]
@@ -99,18 +99,16 @@ function get_all_timestamps_xdf(sets, root_folder)
 end
 
 function get_all_timestamps_json(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
-    #now get all timestampd from .json files
+    #now get all timestamps from .json files
     timestamps_json = DataFrame(:set => String[], :session => String[], :stream => String[], :first_timestamp => Float64[],  :duration => Float64[])
     for set in sets
         director = set*"_02"
         matcher = set*"_01"
         for session in ["01", "02", "03", "04"]
-            start_time_synced_s_dir = get_json_timestamp(director, session)
-            if start_time_synced_s_dir == Dict()
+            start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
+            if start_time_synced_s_dir == 0
                 println("No json file for $set for this session: $session")
                 continue
-            else
-                start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
             end
             push!(timestamps_json, (set, session,"ET_DESKTOP-5B8EI51", start_time_synced_s_dir, duration_dir))
             start_time_synced_s_matcher = get_json_timestamp(matcher, session)

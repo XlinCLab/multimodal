@@ -4,12 +4,13 @@ root_folder = "/Users/varya/Desktop/Julia/"
 labels_folder = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/labels"
 
 # every set has two participants and four sessions
-sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
+sets = ["04", "05", "06", "07", "08", "10", "11", "12", "13"]
 surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
 
-#Read all the Lab Streaming Layer timestamps from .xdf files and aggregate them in one table
+#Read all the Lab Streaming Layer timestamps from .xdf and .json files and aggregate them in one table
 get_all_timestamps_xdf(sets, root_folder)
-
+get_all_timestamps_json(sets, root_folder)
+get_lag_ET()
 #Get all the frames of interest (200 milliseconds primary to the noun onset
 #check if all the april tags are recognized, if not
 
