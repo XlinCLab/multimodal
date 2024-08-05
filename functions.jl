@@ -23,7 +23,7 @@ using CairoMakie
 using Images
 
 # functions that create aggregated tables with timestamps, lags and coordinates
-function get_json_timestamp(participant, session, root_folder="/Users/varya/Desktop/Julia/DGAME data/")
+function get_json_timestamp(participant, session, root_folder=root_folder)
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
     surface_session = surface_sessions[session]
     session_file = joinpath(root_folder, "DGAME3_$participant", "$surface_session", "info.player.json")
@@ -98,7 +98,7 @@ function get_all_timestamps_xdf(sets, root_folder)
     return timestamps_xdf
 end
 
-function get_all_timestamps_json(sets, root_folder="/Users/varya/Desktop/Julia/DGAME data")
+function get_all_timestamps_json(sets, root_folder=root_folder)
     #now get all timestamps from .json files
     timestamps_json = DataFrame(:set => String[], :session => String[], :stream => String[], :first_timestamp => Float64[],  :duration => Float64[])
     for set in sets
@@ -129,7 +129,7 @@ function get_all_timestamps_json(sets, root_folder="/Users/varya/Desktop/Julia/D
     return timestamps_json
 end
 
-function get_lag_ET(reprocess="no",root_folder="/Users/varya/Desktop/Julia/DGAME data")
+function get_lag_ET(reprocess="no",root_folder=root_folder)
     #call the functions to refresf the data
     if reprocess == "yes"
         sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
@@ -147,7 +147,7 @@ function get_lag_ET(reprocess="no",root_folder="/Users/varya/Desktop/Julia/DGAME
         transform!(lag, [:first_timestamp_xdf, :first_timestamp] => ByRow((x,y) -> (x - y)/1000) => :lag_timestamp)
         transform!(lag, [:duration, :duration_xdf] => ByRow((x,y) -> (x - y)/1000) => :lag_duration)
         
-    CSV.write("/Users/varya/Desktop/Julia/DGAME data/lag_data.csv", lag)   
+    CSV.write("$root_folder/lag_data.csv", lag)   
     return lag 
 end
 
@@ -190,10 +190,7 @@ end
 
 #functions that read words, gazes, fixations and create a framelist with tokens
 
-function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder="")
-    if root_folder==""
-        root_folder="/Users/varya/Desktop/Julia/DGAME data"
-    end
+function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder)
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])  
     participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
     lag_data= DataFrame()
@@ -337,11 +334,7 @@ end
 
 #write face visibility
 
-function get_and_reannotate_words(set, session, root_folder="")    
-    if root_folder==""
-        root_folder="/Users/varya/Desktop/Julia/DGAME data/AUDIO"
-    end
-
+function get_and_reannotate_words(set, session, root_folder=root_folder)    
     conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
     condition = conditions[session]
     words_folder = joinpath( root_folder, set,"Wortlisten")
@@ -369,11 +362,7 @@ function get_and_reannotate_words(set, session, root_folder="")
     return target_words
 end
 
-function get_set_fixations_for_nouns(set::String, root_folder::String="", data_type::String = "fixations_on_surface")
-    #set= "04" #for testing
-    if root_folder==""
-        root_folder="/Users/varya/Desktop/Julia/"
-    end
+function get_set_fixations_for_nouns(set::String, root_folder=root_folder, data_type = "fixations_on_surface")
     if data_type == "fixations_on_surface"
         fixations_for_set = DataFrame(
             world_timestamp = Float64[],
@@ -591,7 +580,7 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
     return all_surface_coordinates
 end
 
-function get_surface_matrices(participant,session,framenumbers, root_folder="/Users/varya/Desktop/Julia/DGame data")
+function get_surface_matrices(participant,session,framenumbers, root_folder=root_folder)
     #CSV.read cannot parse nested lists of coordinates
     #!NB this function does not return set and session
     #NB! this function does not check for markers detected
