@@ -84,6 +84,7 @@ all_trial_surfaces_gazes_file="/Users/varya/Desktop/Julia/all_trial_surfaces_gaz
 all_trial_surfaces_fixations_file="/Users/varya/Desktop/Julia/all_trial_surfaces_fixations.csv"
 all_frame_objects = CSV.read("/Users/varya/Desktop/Julia/all_frame_objects_surfaces.csv", DataFrame)
 
+
 target_gazes, target_fixations =  get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
  
 CSV.write("/Users/varya/Desktop/Julia/target_gazes_1sec.csv", target_gazes)
