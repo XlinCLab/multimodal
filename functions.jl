@@ -194,7 +194,6 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])  
     participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
     lag_data= DataFrame()
-        #/Users/varya/Desktop/Julia/DGAME data/DGAME3_06_01/000/exports/000/surfaces
     try 
         CSV.read(joinpath(root_folder,"lag_data.csv"), DataFrame)
     catch e
@@ -288,32 +287,6 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
         return fixations_positions
 end
 
-function get_joint_attention_fixations(set, session)
-        director = set*"_02"
-        matcher = set*"_01"
-    director_fixations = read_surfaces(director, session) |>
-                        df -> select!(df, [ :time_sec, :world_index, :surface, :duration, :start_timestamp])|>
-                        df -> rename!(df,  :time_sec => :time_sec_director, :duration => :duration_director, :start_timestamp => :start_timestamp_director)
-    matcher_fixations = read_surfaces(matcher, session) |>
-                        df -> select!(df, [ :time_sec, :world_index, :surface, :duration, :start_timestamp])
-    #world index is the number of the closest video DataFrame
-    joint_attention = innerjoin(matcher_fixations,director_fixations, on = [:world_index, :surface] )
-    return joint_attention
-end
-
-function get_joint_attention_gaze_positions(set, session)
-        director = set*"_02"
-        matcher = set*"_01"
-    director_gps = read_surfaces(director, session, "gaze_positions_on_surface") |>
-                        df -> select!(df, [ :time_sec, :world_index, :surface,  :gaze_timestamp])|>
-                        df -> rename!(df,  :time_sec => :time_sec_director, :gaze_timestamp => :gaze_timestamp_director)
-    matcher_gps = read_surfaces(matcher, session, "gaze_positions_on_surface") |>
-                        df -> select!(df, [ :time_sec, :world_index, :surface,  :gaze_timestamp])
-    #world index is the number of the closest video DataFrame
-    joint_attention = innerjoin(matcher_gps,director_gps, on = [:world_index, :surface] )
-    return joint_attention
-end
-
 function get_frames_from_fixations(all_fixations)
     frame_numbers = select(all_fixations, :frame_number, :participant, :session, :noun)
     frame_numbers = unique!(frame_numbers)
@@ -332,7 +305,7 @@ function get_frames_from_fixations(all_fixations)
     return frame_numbers
 end
 
-#write face visibility
+#functions that add times of words
 
 function get_and_reannotate_words(set, session, root_folder=root_folder)    
     conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
@@ -539,6 +512,7 @@ function check_april_tags_for_frames(frames)
     return frames
 end
 
+#functions that perform perspective transformation and assigne surfaces to object for every given moment (frame)
 
 function get_all_surface_matrices_for_frames(frames=DataFrame())
     if isempty(frames)
@@ -672,13 +646,6 @@ function transform_surface_corners(pos, matrix)
     return new_pos
 end
 
-
-function read_intrinsics(file_path)
-    binary_content = read_binary_file(file_path)
-    data = MsgPack.unpack(binary_content)
-    return data
-end
-
 function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations, gazes_file="", fixations_file="")
     #get the gazes and fixations for the surface
     surfaces = rename(all_frame_objects, :object => :token, :surface_number => :surface) |>
@@ -752,13 +719,26 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
         image_sizes = CSV.read(joinpath(root_folder,"image_sizes.csv"), DataFrame) 
         println("image_sizes read from file")
     end
+    #depending of if we have image sizes and yolo_coordinates in memory or from file#set can be integer or string
+    #let's make it string
+
+    if typeof(yolo_coordinates.set[1]) == Int64
+        yolo_coordinates.set = lpad.(string.(yolo_coordinates.set), 2, '0')
+        yolo_coordinates.session = lpad.(string.(yolo_coordinates.session), 2, '0')
+    end
+    if typeof(image_sizes.set[1]) == Int64
+        image_sizes.set = lpad.(string.(image_sizes.set), 2, '0')
+        image_sizes.session = lpad.(string.(image_sizes.session), 2, '0')
+    end
+    if typeof(frames_corrected.session[1]) == Int64
+        frames_corrected.session = lpad.(string.(frames_corrected.session), 2, '0')
+    end
     # now make a file with a map - frame,object,surface
     #assume, we have all the GOOD frames - with 6 April tages recognized
     all_frame_objects = DataFrame()
     for frame in eachrow(frames_corrected)
         #frame=eachrow(frames_corrected)[2433]
         set = frame.participant[1:2]
-        set = parse(Int, set)
         current_size= filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, image_sizes)
         if isempty(current_size)
             println("No image size for frame: $(frame.new_frame_number)")
@@ -892,7 +872,8 @@ function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write
     return surface_coords
 end
 
-#CairoMakie flips the background image for whatever reason
+#additional utiliies to plot surfaces and see if something is wrong 
+#note: CairoMakie flips the background image for whatever reason
 function plot_surfaces(surface_coordinates, img_width, img_height, background_image_path)
     img = FileIO.load(background_image_path)
     img = rotl90(img)
@@ -953,4 +934,39 @@ function collect_image_dimensions(recognized_images_folder_path::String)
     end
     CSV.write("/Users/varya/Desktop/Julia/image_sizes.csv", image_sizes)
     return image_sizes
+end
+
+#additional utilities to get joint attention
+
+function get_joint_attention_fixations(set, session)
+    director = set*"_02"
+    matcher = set*"_01"
+    director_fixations = read_surfaces(director, session) |>
+                        df -> select!(df, [ :time_sec, :world_index, :surface, :duration, :start_timestamp])|>
+                        df -> rename!(df,  :time_sec => :time_sec_director, :duration => :duration_director, :start_timestamp => :start_timestamp_director)
+    matcher_fixations = read_surfaces(matcher, session) |>
+                        df -> select!(df, [ :time_sec, :world_index, :surface, :duration, :start_timestamp])
+    #world index is the number of the closest video DataFrame
+    joint_attention = innerjoin(matcher_fixations,director_fixations, on = [:world_index, :surface] )
+    return joint_attention
+end
+
+function get_joint_attention_gaze_positions(set, session)
+    director = set*"_02"
+    matcher = set*"_01"
+    director_gps = read_surfaces(director, session, "gaze_positions_on_surface") |>
+                        df -> select!(df, [ :time_sec, :world_index, :surface,  :gaze_timestamp])|>
+                        df -> rename!(df,  :time_sec => :time_sec_director, :gaze_timestamp => :gaze_timestamp_director)
+    matcher_gps = read_surfaces(matcher, session, "gaze_positions_on_surface") |>
+                        df -> select!(df, [ :time_sec, :world_index, :surface,  :gaze_timestamp])
+    #world index is the number of the closest video DataFrame
+    joint_attention = innerjoin(matcher_gps,director_gps, on = [:world_index, :surface] )
+    return joint_attention
+end
+
+#additional utilities to get camera parameters
+function read_intrinsics(file_path)
+    binary_content = read_binary_file(file_path)
+    data = MsgPack.unpack(binary_content)
+    return data
 end
