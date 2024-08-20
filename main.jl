@@ -1,6 +1,6 @@
 # this is the main script, that runs the pipeline
 include("functions.jl")
-root_folder = "/Users/varya/Desktop/Julia/"
+root_folder = "/Users/varya/Desktop/Julia/DGAME data"
 labels_folder = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/labels"
 
 # every set has two participants and four sessions
@@ -10,7 +10,7 @@ surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "00
 #Read all the Lab Streaming Layer timestamps from .xdf and .json files and aggregate them in one table
 get_all_timestamps_xdf(sets, root_folder)
 get_all_timestamps_json(sets, root_folder)
-get_lag_ET()
+get_lag_ET(sets, root_folder)
 #Get all the frames of interest (200 milliseconds primary to the noun onset
 #check if all the april tags are recognized, if not
 
@@ -23,31 +23,35 @@ get_lag_ET()
 log_file = open("combine_fixations_by_nouns.log", "w")
 # Redirect stdout to the log file
 redirect_stdout(log_file) 
-    @info "This is the log file of the processing of the fixations by nouns, you can find all the missing values and errors here"
+    #@info "This is the log file of the processing of the fixations by nouns, you can find all the missing values and errors here"
 all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
 # Yolo may change image size deleting the black borders, so we need to check the image sizes
-
 close(log_file)
 
 # get frames of interest (200 ms before the noun onset)
-frames = get_frames_from_fixations(all_fixations)
+frames = get_frames_from_fixations(all_trial_surfaces_fixations)
 #correct frame numbers according to april tags recognized
 #get a frame with maximum april tags from 1 sec to the noun onset period
 frames_corrected = check_april_tags_for_frames(frames)
 
+
+
 #read from file if needed, CSV package cannot handle surface transformation matrices, so use TextParse
-frames_corrected = CSV.read("/Users/varya/Desktop/Julia/frame_numbers_corrected_with_tokens.csv", DataFrame)
+#frames_corrected = CSV.read("$root_folder/frame_numbers_corrected_with_tokens.csv", DataFrame)
+
+# get all transformation matrices for all frames in one aggregated table
+#it will be written to a cvs file "all_surface_matrices.csv"
+surface_positions = get_all_surface_matrices_for_frames(frames_corrected)
+#in case, you'd like to download it from file
 if isempty(surface_positions)
-    data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
+    data, surf_names = TextParse.csvread("$root_folder/all_surface_matrices.csv")
     surface_positions =  DataFrame()
     for (i, surf_name) in enumerate(surf_names)
         surface_positions[!, Symbol(surf_name)] = data[i]
     end
 end
 
-# get all transformation matrices for all frames in one aggregated table
-#it will be written to a cvs file "all_surface_matrices.csv"
-surface_positions = get_all_surface_matrices_for_frames(frames_corrected)
+
 
 #Get all coordinates for all recognized objects for all frames and write them to one dataset
 #it will be written to a cvs file "all_yolo_coordinates.csv"
@@ -66,31 +70,35 @@ image_sizes = collect_image_dimensions(yolo_output_path)
 #!NB not all frames have recognized surfaces, even if all the april tags are visible
 #it might be the case that there are no surfaces for 30 frames in a row (e.g. 08_01, session 3, frames 19763-1979, no surfaces recognized)
 # in this case object position will be 'outside all'
-yolo_coordinates = CSV.read("/Users/varya/Desktop/Julia/all_yolo_coordinates.csv", DataFrame)
-data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
-surface_positions =  DataFrame()
-for (i, surf_name) in enumerate(surf_names)
-    surface_positions[!, Symbol(surf_name)] = data[i]
-end
-frames_corrected = CSV.read("/Users/varya/Desktop/Julia/frame_numbers_corrected_with_tokens.csv", DataFrame)
-image_sizes = CSV.read("/Users/varya/Desktop/Julia/image_sizes.csv", DataFrame)
+
+#uncomment if you want to load yolo_coordinates and surface positions from files that were made by the previous run
+#yolo_coordinates = CSV.read("/Users/varya/Desktop/Julia/all_yolo_coordinates.csv", DataFrame)
+# data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
+# surface_positions =  DataFrame()
+# for (i, surf_name) in enumerate(surf_names)
+#     surface_positions[!, Symbol(surf_name)] = data[i]
+# end
+# frames_corrected = CSV.read("/Users/varya/Desktop/Julia/frame_numbers_corrected_with_tokens.csv", DataFrame)
+# image_sizes = CSV.read("/Users/varya/Desktop/Julia/image_sizes.csv", DataFrame)
+
 all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, image_sizes)
 
 #Get all the fixations for target objects only 
 #(for the object called in the current noun, 1 sec before and after noun onset)
 # Here we collect all the fixations from scratch again, but one can also load them from file
 #then use an empty DataFrame instead of all_trial_surfaces_gazes and all_trial_surfaces_fixations
-all_trial_surfaces_gazes_file="/Users/varya/Desktop/Julia/all_trial_surfaces_gazes.csv"
-all_trial_surfaces_fixations_file="/Users/varya/Desktop/Julia/all_trial_surfaces_fixations.csv"
-all_frame_objects = CSV.read("/Users/varya/Desktop/Julia/all_frame_objects_surfaces.csv", DataFrame)
-
+all_trial_surfaces_gazes_file="$root_folder/all_trial_surfaces_gazes.csv"
+all_trial_surfaces_fixations_file="$root_folder/all_trial_surfaces_fixations.csv"
+#Uncomment if you want to load all_frame_objects from files that were made by the previous run
+#all_frame_objects = CSV.read("$root_folder/all_frame_objects_surfaces.csv", DataFrame)
 
 target_gazes, target_fixations =  get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
  
-CSV.write("/Users/varya/Desktop/Julia/target_gazes_1sec.csv", target_gazes)
-CSV.write("/Users/varya/Desktop/Julia/target_fixations_1sec.csv", target_fixations)
+CSV.write("$root_folder/target_gazes_1sec.csv", target_gazes)
+CSV.write("$root_folder/target_fixations_1sec.csv", target_fixations)
 
-surface_coordinates=get_all_surfaces_for_a_frame(19787, frame_surfaces)
-plot_surfaces(surface_coordinates, img_width, img_height, "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/set05_01_session2_frame_9690.jpg")
+#this is an optional part to plot a frame if there is something suspicious going on with the surfaces
+#surface_coordinates=get_all_surfaces_for_a_frame(19787, frame_surfaces)
+#plot_surfaces(surface_coordinates, img_width, img_height, "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/set05_01_session2_frame_9690.jpg")
 
 

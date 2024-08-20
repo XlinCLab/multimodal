@@ -83,7 +83,7 @@ function read_timestamps_from_xdf(setting::String, root_folder::String="")
     return timestamps
 end
 
-function get_all_timestamps_xdf(sets, root_folder)
+function get_all_timestamps_xdf(sets, root_folder=root_folder)
     timestamps_xdf = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[], :diff => Float64[], :duration => Float64[])
     for set in sets
         timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set))
@@ -129,10 +129,9 @@ function get_all_timestamps_json(sets, root_folder=root_folder)
     return timestamps_json
 end
 
-function get_lag_ET(reprocess="no",root_folder=root_folder)
+function get_lag_ET(sets,reprocess="no",root_folder=root_folder)
     #call the functions to refresf the data
     if reprocess == "yes"
-        sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
         get_all_timestamps_xdf(sets)
         get_all_timestamps_json(sets)
     end
@@ -184,14 +183,14 @@ function get_all_yolo_coordinates(labels_folder)
             end
         end
     end
-    CSV.write("all_yolo_coordinates.csv", all_yolo_coordinates)
+    CSV.write("$root_folder/all_yolo_coordinates.csv", all_yolo_coordinates)
     return all_yolo_coordinates
 end
 
 #functions that read words, gazes, fixations and create a framelist with tokens
 
 function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder)
-    surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])  
+    #participant="05_01" #for testing
     participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
     lag_data= DataFrame()
     try 
@@ -210,11 +209,11 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
     
     if size(lag_data)[1] != 0
         lag_data = filter(row -> row.participant == participant && row.session == session, lag_data)
-        if size(lag_data)[1] != 0
-            lag_data = select!(lag_data, [:stream, :lag_duration, :lag_timestamp, :first_timestamp_xdf])
-        end
-    else
+        lag_data = select(lag_data, [:stream, :lag_duration, :lag_timestamp, :first_timestamp_xdf])
+    end
+    if size(lag_data)[1] == 0
         println("No lag data for $participant for this session: $session, times are not aligned ")
+        return DataFrame()
     end
 
     lag = lag_data.lag_timestamp[1]
@@ -300,7 +299,7 @@ function get_frames_from_fixations(all_fixations)
         #row=eachrow(frame_numbers)[1]
         session = lpad(row.session,2,"0")
         session = surface_sessions[session]
-        row.video_path = joinpath(root_folder, "DGAME data/DGAME3_"*row.participant, session , "world.mp4")
+        row.video_path = joinpath(root_folder, "DGAME3_"*row.participant, session , "world.mp4")
     end
     return frame_numbers
 end
@@ -310,7 +309,7 @@ end
 function get_and_reannotate_words(set, session, root_folder=root_folder)    
     conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
     condition = conditions[session]
-    words_folder = joinpath( root_folder, set,"Wortlisten")
+    words_folder = joinpath( root_folder,"AUDIO", set,"Wortlisten")
     try
         CSV.read(joinpath(words_folder, "words_$set"*"_$condition.csv"), DataFrame) 
     catch e
@@ -335,7 +334,9 @@ function get_and_reannotate_words(set, session, root_folder=root_folder)
     return target_words
 end
 
-function get_set_fixations_for_nouns(set::String, root_folder=root_folder, data_type = "fixations_on_surface")
+function get_set_fixations_for_nouns(set::String, data_type)
+    #set="08" for testing
+    println("Running get_set_fixations_for_noun for set $set and data type $data_type")
     if data_type == "fixations_on_surface"
         fixations_for_set = DataFrame(
             world_timestamp = Float64[],
@@ -388,7 +389,7 @@ function get_set_fixations_for_nouns(set::String, root_folder=root_folder, data_
         println("wrong data type, choose fixations_on_surface or gaze_positions_on_surface")
         return DataFrame()
     end
-    words_sessions = ["01", "02", "03","04"]
+    words_sessions = ["01", "02", "03", "04"]
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
 
     nouns_for_set = 0
@@ -421,7 +422,7 @@ function get_set_fixations_for_nouns(set::String, root_folder=root_folder, data_
         else
             set_fixations = vcat(matcher_fixations, director_fixations)
         end
-        #CSV.write("set_fixations.csv", set_fixations)
+        #CSV.write("$root_folder/set_fixations.csv", set_fixations)
         # find all fixations that are -1 sec from the noun and up to +2 sec from the noun
         nouns_for_set += size(nouns)[1]
         #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
@@ -469,6 +470,7 @@ function check_april_tags_for_frames(frames)
     end
     videos = unique(frames.video_path)
     for video in videos
+        #video="" #for testing
         surfaces_folder = joinpath(replace(video, "world.mp4" => ""),"exports")
         if !isdir(surfaces_folder)
             println(surfaces_folder)
@@ -508,7 +510,7 @@ function check_april_tags_for_frames(frames)
         end
         
     end
-    CSV.write("frame_numbers_corrected_with_tokens.csv", frames)
+    CSV.write("$root_folder/frame_numbers_corrected_with_tokens.csv", frames)
     return frames
 end
 
@@ -550,7 +552,7 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
         surface_coordinates.session = fill(session, nrow(surface_coordinates))
         all_surface_coordinates = vcat(all_surface_coordinates, surface_coordinates)
     end
-    CSV.write("all_surface_matrices.csv", all_surface_coordinates)
+    CSV.write("$root_folder/all_surface_matrices.csv", all_surface_coordinates)
     return all_surface_coordinates
 end
 
@@ -674,18 +676,19 @@ function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_tri
 end
 
 function get_all_gazes_and_fixations_by_frame(sets)
+    println("Running get_all_gazes_and_fixations_by_frame for sets")
     all_gazes = DataFrame()
     all_fixations = DataFrame()
     for set in sets
-        fixations = get_set_fixations_for_nouns(set)
-        gazes = get_set_fixations_for_nouns(set, "","gaze_positions_on_surface")
+        fixations = get_set_fixations_for_nouns(set,"fixations_on_surface")
+        gazes = get_set_fixations_for_nouns(set, "gaze_positions_on_surface")
         all_gazes = vcat(all_gazes, gazes)
         all_fixations = vcat(all_fixations, fixations)
     end
     all_fixations.trial_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(all_fixations)]
     all_gazes.trial_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(all_gazes)]
-    CSV.write("all_trial_gazes.csv", all_gazes)
-    CSV.write("all_trial_fixations.csv", all_fixations)
+    CSV.write("$root_folder/all_trial_gazes.csv", all_gazes)
+    CSV.write("$root_folder/all_trial_fixations.csv", all_fixations)
     return all_gazes, all_fixations
 end
 
@@ -698,6 +701,7 @@ function pixel_center_and_flip(x, y, img_width, img_height)
     
     return x, new_y
 end
+
 function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected,image_sizes)
     if isempty(frames_corrected)
         frames_corrected=CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv"), DataFrame) 
@@ -722,15 +726,15 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
     #depending of if we have image sizes and yolo_coordinates in memory or from file#set can be integer or string
     #let's make it string
 
-    if typeof(yolo_coordinates.set[1]) == Int64
+    if typeof(yolo_coordinates.set[1]) == Int64  || any(x -> length(x) == 1, yolo_coordinates.set) || any(x -> length(x) == 1, yolo_coordinates.session)
         yolo_coordinates.set = lpad.(string.(yolo_coordinates.set), 2, '0')
         yolo_coordinates.session = lpad.(string.(yolo_coordinates.session), 2, '0')
     end
-    if typeof(image_sizes.set[1]) == Int64
+    if typeof(image_sizes.set[1]) == Int64  || any(x -> length(x) == 1, image_sizes.set) || any(x -> length(x) == 1, image_sizes.session)
         image_sizes.set = lpad.(string.(image_sizes.set), 2, '0')
         image_sizes.session = lpad.(string.(image_sizes.session), 2, '0')
     end
-    if typeof(frames_corrected.session[1]) == Int64
+    if typeof(frames_corrected.session[1]) == Int64  || any(x -> length(x) == 1, frames_corrected.session)
         frames_corrected.session = lpad.(string.(frames_corrected.session), 2, '0')
     end
     # now make a file with a map - frame,object,surface
@@ -758,7 +762,7 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
 
     end
-    CSV.write("all_frame_objects_surfaces.csv", all_frame_objects)
+    CSV.write("$root_folder/all_frame_objects_surfaces.csv", all_frame_objects)
     return all_frame_objects
 end
 
@@ -932,7 +936,7 @@ function collect_image_dimensions(recognized_images_folder_path::String)
             println("Skipping file $file: $e")
         end
     end
-    CSV.write("/Users/varya/Desktop/Julia/image_sizes.csv", image_sizes)
+    CSV.write("$root_folder/image_sizes.csv", image_sizes)
     return image_sizes
 end
 

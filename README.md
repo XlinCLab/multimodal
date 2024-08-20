@@ -82,7 +82,9 @@ frames = get_frames_from_fixations(all_fixations)
 #correct frame numbers according to april tags recognized
 #get a frame with maximum april tags from 1 sec to the noun onset period
 frames_corrected = check_april_tags_for_frames(frames)
-
+```
+Every step leaves a dataset written to your root folder. Use this code, if you want to upload corrected frames and surface positions from files
+```julia
 #read from file if needed, CSV package cannot handle surface transformation matrices, so use TextParse
 frames_corrected = CSV.read("frame_numbers_corrected_with_tokens.csv", DataFrame)
 if isempty(surface_positions)
@@ -92,14 +94,14 @@ if isempty(surface_positions)
         surface_positions[!, Symbol(surf_name)] = data[i]
     end
 end
-
-
-#get all transformation matrices for all frames in one aggregated table
-#it will be written to a cvs file "all_surface_matrices.csv"
+```
+Here we get all transformation matrices for all frames in one aggregated table. Then get all coordinates for all recognized objects for all frames and write them to one dataset
+```julia
+#transformation matrices will be written to a cvs file "all_surface_matrices.csv"
 surface_positions = get_all_surface_matrices_for_frames(frames_corrected)
 
-#Get all coordinates for all recognized objects for all frames and write them to one dataset
-#it will be written to a cvs file "all_yolo_coordinates.csv"
+
+# coordinates for all recognized objects will be written to a cvs file "all_yolo_coordinates.csv"
 #lables_folder is a folder with labels .txt files for tne frames woth objects recognized by Yolo
 yolo_coordinates = get_all_yolo_coordinates(labels_folder)
 ```
