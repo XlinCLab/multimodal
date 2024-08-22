@@ -24,6 +24,8 @@ For each Director-Matcher pair, for each session:
 In the last month the priority was to get everything to work, so I apologize for the lack of documentation. I am planning to get everything nicely documentd in the nearest time.
 
 ## Installation
+I would recommend installing VSCode: https://code.visualstudio.com/
+and Julia extension for it: https://code.visualstudio.com/docs/languages/julia
 
 To use the functions in this repository, ensure you have the following Julia packages installed:
 

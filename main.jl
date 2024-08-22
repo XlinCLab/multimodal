@@ -4,7 +4,7 @@ root_folder = "/Users/varya/Desktop/Julia/DGAME data"
 labels_folder = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/labels"
 
 # every set has two participants and four sessions
-sets = ["04", "05", "06", "07", "08", "10", "11", "12", "13"]
+sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
 surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
 
 #Read all the Lab Streaming Layer timestamps from .xdf and .json files and aggregate them in one table
