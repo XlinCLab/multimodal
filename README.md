@@ -30,7 +30,7 @@ and Julia extension for it: https://code.visualstudio.com/docs/languages/julia
 
 video tutorials:
 
-1.introduction and data structure  https://youtu.be/sRsK0DX_gbE
+1.introduction and data structure  https://youtu.be/8RkeuQ8UpiI
 
 2.Walkthrough https://youtu.be/W2fFCgSKnfU
 
