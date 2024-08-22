@@ -32,7 +32,7 @@ video tutorials:
 
 1.introduction and data structure  https://youtu.be/8RkeuQ8UpiI
 
-2.Walkthrough https://youtu.be/W2fFCgSKnfU
+2.Walkthrough https://youtu.be/2Eq6W8WXNHw
 
 To use the functions in this repository, ensure you have the following Julia packages installed:
 
