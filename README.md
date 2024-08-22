@@ -26,6 +26,9 @@ In the last month the priority was to get everything to work, so I apologize for
 ## Installation
 I would recommend installing VSCode: https://code.visualstudio.com/
 and Julia extension for it: https://code.visualstudio.com/docs/languages/julia
+video tutorials:
+1.introduction and data structure  https://youtu.be/sRsK0DX_gbE
+2.Walkthrough https://youtu.be/W2fFCgSKnfU
 
 To use the functions in this repository, ensure you have the following Julia packages installed:
 
