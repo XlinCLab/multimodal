@@ -24,12 +24,18 @@ For each Director-Matcher pair, for each session:
 In the last month the priority was to get everything to work, so I apologize for the lack of documentation. I am planning to get everything nicely documentd in the nearest time.
 
 ## Installation
+you would probably need to install Julia first:
+https://julialang.org/downloads/
+
+And then you would need a proper IDE for that.
 I would recommend installing VSCode: https://code.visualstudio.com/
 
 and Julia extension for it: https://code.visualstudio.com/docs/languages/julia
 
-video tutorials:
+Make sure the data on your computer has the same structure as in the Sample DGAME data structure .txt file.
+Then clone this repository, install the packages below, type in your root folder (the folder with the data) and the labels folder, and run the main.jl, you may also run it line by line to make sure you understans what's going on, but this is not necessary.
 
+Basic video tutorials for the DGAME 3 datastructure and pipeline:
 1.introduction and data structure  https://youtu.be/8RkeuQ8UpiI
 
 2.Walkthrough https://youtu.be/2Eq6W8WXNHw
