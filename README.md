@@ -58,13 +58,16 @@ Pkg.add("CairoMakie")
 Pkg.add("Images")
 Pkg.add("Printf")
 ```
+## Run the pipeline
+ Here is the script that runs the pipeline to get all fixations +- 1 sec from the noun onset, and separately target object fixations for the director and the matcher. Note, that this goes in two parts - you run the first part, then you run the CV module to get objects pixel coordinates, and then you run the second part of the code, that filters and aggregates all the data for the target object onset together. You can also change the times of interest from object onset to something else, to do that you will have to slightly alternate some of the functions. 
+ See the detailed instructions for the CV modeule at https://github.com/XlinCLab/multimodal-yolo
 
-Run the pipeline: here is the script that runs the pipeline to get all fixations +- 1 sec from the noun onset, and separately target object fixations for the director and the matcher
-
+### PART ONE
 ```julia
 # this is the main script, that runs the pipeline
 include("functions.jl")
 root_folder = ""
+#Insert here the results of the CV module
 labels_folder = "labels"
 
 # every set has two participants and four sessions
@@ -99,6 +102,10 @@ frames = get_frames_from_fixations(all_fixations)
 #get a frame with maximum april tags from 1 sec to the noun onset period
 frames_corrected = check_april_tags_for_frames(frames)
 ```
+### HERE YOU HAVE TO RUN THE CV MODELU AND GET THE PIXEL COORDINATES OF THE OBJECTS
+go to the https://github.com/XlinCLab/multimodal-yolo and follow the instructions there, after you get the labels folder, put the path to it to the labels_folder variable at the top of the main.jl
+
+## PART TWO
 Every step leaves a dataset written to your root folder. Use this code, if you want to upload corrected frames and surface positions from files
 ```julia
 #read from file if needed, CSV package cannot handle surface transformation matrices, so use TextParse
