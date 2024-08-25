@@ -102,7 +102,7 @@ frames = get_frames_from_fixations(all_fixations)
 #get a frame with maximum april tags from 1 sec to the noun onset period
 frames_corrected = check_april_tags_for_frames(frames)
 ```
-### HERE YOU HAVE TO RUN THE CV MODELU AND GET THE PIXEL COORDINATES OF THE OBJECTS
+### HERE YOU HAVE TO RUN THE CV MODULE AND GET THE PIXEL COORDINATES OF THE OBJECTS
 go to the https://github.com/XlinCLab/multimodal-yolo and follow the instructions there, after you get the labels folder, put the path to it to the labels_folder variable at the top of the main.jl
 
 ## PART TWO

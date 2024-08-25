@@ -1,294 +1,463 @@
-### Documentation for Functions in `functions.jl`
+#  Functions Documentation
 
-#### 1. `get_json_timestamp`
+## Functions List
+- [get_json_timestamp](#get_json_timestamp)
+- [read_timestamps_from_xdf](#read_timestamps_from_xdf)
+- [get_all_timestamps_xdf](#get_all_timestamps_xdf)
+- [get_all_timestamps_json](#get_all_timestamps_json)
+- [get_lag_ET](#get_lag_et)
+- [get_all_yolo_coordinates](#get_all_yolo_coordinates)
+- [read_surfaces](#read_surfaces)
+- [get_and_reannotate_words](#get_and_reannotate_words)
+- [get_set_fixations_for_nouns](#get_set_fixations_for_nouns)
+- [check_april_tags_for_frames](#check_april_tags_for_frames)
+- [get_all_surface_matrices_for_frames](#get_all_surface_matrices_for_frames)
+- [get_surface_matrices](#get_surface_matrices)
+- [get_gazes_and_fixations_by_frame_and_surface](#get_gazes_and_fixations_by_frame_and_surface)
+- [get_all_gazes_and_fixations_by_frame](#get_all_gazes_and_fixations_by_frame)
+- [get_surfaces_for_all_objects](#get_surfaces_for_all_objects)
+- [get_surface_for_frame_objects](#get_surface_for_frame_objects)
+- [collect_image_dimensions](#collect_image_dimensions)
+- [get_joint_attention_fixations](#get_joint_attention_fixations)
+- [get_joint_attention_gaze_positions](#get_joint_attention_gaze_positions)
+- [read_intrinsics](#read_intrinsics)
 
-- **Description**: Extracts the start time and duration from a JSON file.
-- **Input**:
-  - `participant::String`: Participant ID.
-  - `session::String`: Session ID.
-  - `root_folder::String` (optional): Root folder containing the data.
-- **Output**:
-  - `(start_time_synced_s::Float64, duration::Float64)`: Tuple containing the start time and duration.
-- **Functionality**: Reads the `info.player.json` file, extracts `start_time_synced_s` and `duration_s`.
+---
 
-#### 2. `read_timestamps_from_xdf`
+## get_json_timestamp
 
-- **Description**: Reads timestamps from XDF files and aggregates them.
-- **Input**:
-  - `setting::String`: Setting identifier.
-  - `root_folder::String` (optional): Root folder containing the XDF data.
-- **Output**:
-  - `timestamps::DataFrame`: DataFrame with aggregated timestamps.
-- **Functionality**: Reads XDF files, extracts and processes timestamps for audio and pupil capture streams.
+```julia
+get_json_timestamp(participant, session, root_folder=root_folder)
+```
 
-#### 3. `get_all_timestamps_xdf`
+Retrieves the start time and duration of a session from a JSON file.
 
-- **Description**: Aggregates all XDF timestamps for a set of settings.
-- **Input**:
-  - `sets::Vector{String}`: List of settings.
-  - `root_folder::String`: Root folder for storing the CSV output.
-- **Output**:
-  - `timestamps_xdf::DataFrame`: DataFrame with all aggregated timestamps.
-- **Functionality**: Combines timestamps from multiple settings, converts them to milliseconds, and writes to a CSV file.
+### Arguments
+- `participant`: String identifier for the participant
+- `session`: String identifier for the session
+- `root_folder`: Optional. Root directory path
 
-#### 4. `get_all_timestamps_json`
+### Returns
+- Tuple of (start_time_synced_s, duration)
 
-- **Description**: Aggregates all JSON timestamps for a set of settings.
-- **Input**:
-  - `sets::Vector{String}`: List of settings.
-  - `root_folder::String` (optional): Root folder for storing the CSV output.
-- **Output**:
-  - `timestamps_json::DataFrame`: DataFrame with all aggregated timestamps.
-- **Functionality**: Combines timestamps from multiple settings, converts them to milliseconds, and writes to a CSV file.
+### Description
+Reads a JSON file containing session information and extracts the start time and duration.
 
-#### 5. `get_lag_ET`
+---
 
-- **Description**: Calculates the lag between timestamps from XDF and JSON files.
-- **Input**:
-  - `reprocess::String` (optional): Flag to reprocess data.
-  - `root_folder::String` (optional): Root folder containing the data.
-- **Output**:
-  - `lag::DataFrame`: DataFrame with calculated lags.
-- **Functionality**: Reads and processes timestamps, calculates lags, and writes to a CSV file.
+## read_timestamps_from_xdf
 
-#### 6. `get_all_yolo_coordinates`
+```julia
+read_timestamps_from_xdf(setting::String, root_folder::String="")
+```
 
-- **Description**: Reads YOLO coordinates from label files and aggregates them.
-- **Input**:
-  - `labels_folder::String`: Folder containing YOLO label files.
-- **Output**:
-  - `all_yolo_coordinates::DataFrame`: DataFrame with all YOLO coordinates.
-- **Functionality**: Reads YOLO label files, processes coordinates, and writes to a CSV file.
+Reads timestamps from XDF files for a given setting.
 
-#### 7. `read_surfaces`
+### Arguments
+- `setting`: String identifier for the setting
+- `root_folder`: Optional. Root directory path
 
-- **Description**: Reads surface data for a given participant and session.
-- **Input**:
-  - `participant::String`: Participant ID.
-  - `session::String`: Session ID.
-  - `data_type::String` (optional): Type of data (default is `fixations_on_surface`).
-  - `root_folder::String` (optional): Root folder containing the data.
-- **Output**:
-  - `fixations_positions::DataFrame`: DataFrame with surface data.
-- **Functionality**: Reads surface data files, processes timestamps and coordinates, and returns the data.
+### Returns
+- DataFrame containing timestamp information
 
-#### 8. `get_joint_attention_fixations`
+### Writes CSV
+- "timestamps_xdf.csv" in the root folder
 
-- **Description**: Extracts joint attention fixations for a given set and session.
-- **Input**:
-  - `set::String`: Set identifier.
-  - `session::String`: Session identifier.
-- **Output**:
-  - `joint_attention::DataFrame`: DataFrame with joint attention fixations.
-- **Functionality**: Reads surface data for director and matcher, and identifies joint attention fixations.
+### Description
+Processes XDF files to extract timestamp information for audio and eye-tracking data.
 
-#### 9. `get_joint_attention_gaze_positions`
+---
 
-- **Description**: Extracts joint attention gaze positions for a given set and session.
-- **Input**:
-  - `set::String`: Set identifier.
-  - `session::String`: Session identifier.
-- **Output**:
-  - `joint_attention::DataFrame`: DataFrame with joint attention gaze positions.
-- **Functionality**: Reads gaze position data for director and matcher, and identifies joint attention gaze positions.
+## get_all_timestamps_xdf
 
-#### 10. `get_frames_from_fixations`
+```julia
+get_all_timestamps_xdf(sets, root_folder=root_folder)
+```
 
-- **Description**: Extracts frame numbers from fixation data.
-- **Input**:
-  - `all_fixations::DataFrame`: DataFrame with all fixations.
-- **Output**:
-  - `frame_numbers::DataFrame`: DataFrame with frame numbers.
-- **Functionality**: Processes fixation data to extract unique frame numbers.
+Collects timestamps from XDF files for multiple sets.
 
-#### 11. `get_and_reannotate_words`
+### Arguments
+- `sets`: Array of set identifiers
+- `root_folder`: Optional. Root directory path
 
-- **Description**: Reads and reannotates words from audio files.
-- **Input**:
-  - `set::String`: Set identifier.
-  - `session::String`: Session identifier.
-  - `root_folder::String` (optional): Root folder containing the data.
-- **Output**:
-  - `target_words::DataFrame`: DataFrame with reannotated words.
-- **Functionality**: Reads word list files, processes and reannotates words, and returns the data.
+### Returns
+- DataFrame with combined timestamp data
 
-#### 12. `get_set_fixations_for_nouns`
+### Writes CSV
+- "timestamps_xdf.csv" in the root folder
 
-- **Description**: Extracts fixations for nouns within a given set and session.
-- **Input**:
-  - `set::String`: Set identifier.
-  - `root_folder::String` (optional): Root folder containing the data.
-  - `data_type::String` (optional): Type of data (default is `fixations_on_surface`).
-- **Output**:
-  - `fixations_for_set::DataFrame`: DataFrame with fixations for nouns.
-- **Functionality**: Reads fixation data and word list files, processes and combines the data, and returns fixations for nouns.
+### Description
+Aggregates timestamp data from XDF files across multiple sets.
 
-#### 13. `check_april_tags_for_frames`
+---
 
-- **Description**: Checks April tags for frames and corrects frame numbers.
-- **Input**:
-  - `frames::DataFrame`: DataFrame with frame numbers.
-- **Output**:
-  - `frames::DataFrame`: DataFrame with corrected frame numbers.
-- **Functionality**: Reads surface data, checks and corrects frame numbers based on April tag detections, and writes to a CSV file.
+## get_all_timestamps_json
 
-#### 14. `get_all_surface_matrices_for_frames`
+```julia
+get_all_timestamps_json(sets, root_folder=root_folder)
+```
 
-- **Description**: Extracts surface matrices for all frames.
-- **Input**:
-  - `frames::DataFrame` (optional): DataFrame with frame numbers.
-- **Output**:
-  - `all_surface_coordinates::DataFrame`: DataFrame with all surface matrices.
-- **Functionality**: Reads frame numbers, processes surface data, and writes to a CSV file.
+Retrieves timestamps from JSON files for multiple sets.
 
-#### 15. `get_surface_matrices`
+### Arguments
+- `sets`: Array of set identifiers
+- `root_folder`: Optional. Root directory path
 
-- **Description**: Extracts surface matrices for a given participant and session.
-- **Input**:
-  - `participant::String`: Participant ID.
-  - `session::String`: Session ID.
-  - `framenumbers::Vector{Int}`: List of frame numbers.
-  - `root_folder::String` (optional): Root folder containing the data.
-- **Output**:
-  - `surface_coordinates::DataFrame`: DataFrame with surface matrices.
-- **Functionality**: Reads surface data files, processes matrices, and returns the data.
+### Returns
+- DataFrame with timestamp data from JSON files
 
-#### 16. `parse_transformation_matrix`
+### Writes CSV
+- "timestamps_ET.csv" in the root folder
 
-- **Description**: Parses a transformation matrix from a string.
-- **Input**:
-  - `matrix_str::String`: String representation of a matrix.
-- **Output**:
-  - `matrix::Matrix{Float64}`: Parsed 3x3 transformation matrix.
-- **Functionality**: Parses a string to extract and reshape it into a transformation matrix.
+### Description
+Collects timestamp information from JSON files for specified sets.
 
-#### 17. `transform_image_to_surface_coordinates`
+---
 
-- **Description**: Transforms image coordinates to surface coordinates.
-- **Input**:
-  - `x::Float64`: X coordinate.
-  - `y::Float64`: Y coordinate.
-  - `transform_matrix::Matrix{Float64}`: Transformation matrix.
-- **Output**:
-  - `(new_x::Float64, new_y::Float64)`: Transformed coordinates.
-- **Functionality**: Applies a transformation matrix to convert image coordinates to surface coordinates.
+## get_lag_ET
 
-#### 18. `transform_surface_to_image_coordinates`
+```julia
+get_lag_ET(sets, reprocess="no", root_folder=root_folder)
+```
 
-- **Description**: Transforms surface coordinates to image coordinates.
-- **Input**:
-  - `x::Float64`: X coordinate.
-  - `y::Float64`: Y coordinate.
-  - `transform_matrix::Matrix{Float64}`: Transformation matrix.
-- **Output**:
-  - `(new_x::Float64, new_y::Float64)`: Transformed coordinates.
-- **Functionality**: Applies a transformation matrix to convert surface coordinates to image coordinates.
+Calculates lag in eye-tracking data.
 
-#### 19. `transform_surface_corners`
+### Arguments
+- `sets`: Array of set identifiers
+- `reprocess`: Optional. Whether to reprocess data
+- `root_folder`: Optional. Root directory path
 
-- **Description**: Transforms surface corners using a transformation matrix.
-- **Input**:
-  - `pos::Matrix{Float64}`: Positions matrix.
-  - `matrix::Matrix{Float64}`: Transformation matrix.
-- **Output**:
-  - `new_pos::Matrix{Float64}`: Transformed positions.
-- **Functionality**: Applies a transformation matrix to transform surface corners.
+### Returns
+- DataFrame with lag information
 
-#### 20. `read_intrinsics`
+### Writes CSV
+- "lag_data.csv" in the root folder
 
-- **Description**: Reads intrinsic parameters from a file.
-- **Input**:
-  - `file_path::String`: Path to the file.
-- **Output**:
-  - `data::Dict`: Dictionary with intrinsic parameters.
-- **Functionality**: Reads and unpacks intrinsic parameters from a binary file.
+### Description
+Computes lag between XDF and JSON timestamps for eye-tracking data.
 
-#### 21. `get_gazes_and_fixations_by_frame_and_surface`
+---
 
-- **Description**: Extracts gazes and fixations for frames and surfaces.
-- **Input**:
-  - `set::String`: Set identifier.
-  - `surfaces_file::DataFrame`: DataFrame with surface information.
-- **Output**:
-  - `(gazes::DataFrame, fixations::DataFrame)`: DataFrames with gazes and fixations.
-- **Functionality**: Reads and processes gaze and fixation data, matching it with surfaces information.
+## get_all_yolo_coordinates
 
-#### 22. `get_all_gazes_and_fixations_by_frame`
+```julia
+get_all_yolo_coordinates(labels_folder)
+```
 
-- **Description**: Extracts all gazes and fixations for multiple sets.
-- **Input**:
-  - `sets::Vector{String}`: List of sets.
-- **Output**:
-  - `(all_gazes::DataFrame, all_fixations::DataFrame)`: DataFrames with all gazes and fixations.
-- **Functionality**: Reads and processes gaze and fixation data for multiple sets, and returns the combined data.
+Extracts YOLO coordinates from label files.
 
-#### 23. `plot_surfaces`
+### Arguments
+- `labels_folder`: Path to the folder containing YOLO label files
 
-- **Description**: Plots surface data.
-- **Input**:
-  - `surface_coordinates::DataFrame`: DataFrame with surface coordinates.
-- **Output**:
-  - `fig::Figure`: Plot figure.
-- **Functionality**: Plots surfaces with their corners on a 2D plane.
+### Returns
+- DataFrame with YOLO coordinates
 
-#### 24. `pixel_center_and_flip`
+### Writes CSV
+- "all_yolo_coordinates.csv" in the root folder
 
-- **Description**: Centers and flips image coordinates.
-- **Input**:
-  - `x::Float64`: X coordinate.
-  - `y::Float64`: Y coordinate.
-  - `img_width::Int`: Image width.
-  - `img_height::Int`: Image height.
-- **Output**:
-  - `(new_x::Float64, new_y::Float64)`: Transformed coordinates.
-- **Functionality**: Flips image coordinates horizontally and vertically.
+### Description
+Processes YOLO label files to extract object coordinates and information.
 
-#### 25. `get_surfaces_for_all_objects`
+---
 
-- **Description**: Maps objects to surfaces for all frames.
-- **Input**:
-  - `yolo_coordinates::DataFrame`: DataFrame with YOLO coordinates.
-  - `surface_positions::DataFrame`: DataFrame with surface positions.
-  - `root_folder::String`: Root folder containing the data.
-  - `frames_corrected::DataFrame`: DataFrame with corrected frame numbers.
-  - `img_width::Int`: Image width.
-  - `img_height::Int`: Image height.
-- **Output**:
-  - `all_frame_objects::DataFrame`: DataFrame with mapped objects and surfaces.
-- **Functionality**: Reads and processes YOLO and surface data, maps objects to surfaces, and writes to a CSV file.
+## read_surfaces
 
-#### 26. `get_surface_for_frame_objects`
+```julia
+read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder)
+```
 
-- **Description**: Maps objects to surfaces for a specific frame.
-- **Input**:
-  - `frame_objects::DataFrame`: DataFrame with frame objects.
-  - `frame_surfaces::DataFrame`: DataFrame with frame surfaces.
-  - `img_width::Int`: Image width.
-  - `img_height::Int`: Image height.
-- **Output**:
-  - `frame_objects::DataFrame`: DataFrame with mapped objects and surfaces.
-- **Functionality**: Checks if objects are inside surfaces and maps them accordingly.
+Reads surface data for a participant's session.
 
-#### 27. `transform_yolo_to_pixels`
+### Arguments
+- `participant`: String identifier for the participant
+- `session`: String identifier for the session
+- `data_type`: Optional. Type of data to read (default: "fixations_on_surface")
+- `root_folder`: Optional. Root directory path
 
-- **Description**: Transforms YOLO coordinates to pixel coordinates.
-- **Input**:
-  - `x::Float64`: X coordinate.
-  - `y::Float64`: Y coordinate.
-  - `w::Float64`: Width.
-  - `h::Float64`: Height.
-  - `img_width::Int`: Image width.
-  - `img_height::Int`: Image height.
-- **Output**:
-  - `(new_x::Float64, new_y::Float64, new_w::Float64, new_h::Float64)`: Transformed coordinates.
-- **Functionality**: Converts normalized YOLO coordinates to pixel coordinates.
+### Returns
+- DataFrame with surface data
 
-#### 28. `print_folder_structure`
+### Description
+Extracts surface data (fixations or gaze positions) for a specific participant and session.
 
-- **Description**: Prints the folder structure of a given path.
-- **Input**:
-  - `path::String`: Path to the directory.
-  - `indent::String` (optional): Indentation for nested directories.
-- **Output**:
-  - `None`
-- **Functionality**: Recursively prints the directory and file structure.
+---
+
+## get_and_reannotate_words
+
+```julia
+get_and_reannotate_words(set, session, root_folder=root_folder)
+```
+
+Retrieves and reannotates words from audio files.
+
+### Arguments
+- `set`: String identifier for the set
+- `session`: String identifier for the session
+- `root_folder`: Optional. Root directory path
+
+### Returns
+- DataFrame with reannotated words
+
+### Description
+Processes audio word lists, filtering for target words and reannotating them.
+
+---
+
+## get_set_fixations_for_nouns
+
+```julia
+get_set_fixations_for_nouns(set::String, data_type)
+```
+
+Collects fixations or gaze positions for nouns in a set.
+
+### Arguments
+- `set`: String identifier for the set
+- `data_type`: Type of data to process ("fixations_on_surface" or "gaze_positions_on_surface")
+
+### Returns
+- DataFrame with fixations or gaze positions for nouns
+
+### Description
+Aggregates fixation or gaze position data for nouns in a specific set.
+
+---
+
+## check_april_tags_for_frames
+
+```julia
+check_april_tags_for_frames(frames)
+```
+
+Verifies April tags for given frames.
+
+### Arguments
+- `frames`: DataFrame of frames to check
+
+### Returns
+- DataFrame with updated frame numbers
+
+### Writes CSV
+- "frame_numbers_corrected_with_tokens.csv" in the root folder
+
+### Description
+Checks and corrects frame numbers based on April tag recognition.
+
+---
+
+## get_all_surface_matrices_for_frames
+
+```julia
+get_all_surface_matrices_for_frames(frames=DataFrame())
+```
+
+Retrieves surface matrices for all frames.
+
+### Arguments
+- `frames`: Optional. DataFrame of frames
+
+### Returns
+- DataFrame with surface matrices for all frames
+
+### Writes CSV
+- "all_surface_matrices.csv" in the root folder
+
+### Description
+Collects surface transformation matrices for specified frames across all sets and sessions.
+
+---
+
+## get_surface_matrices
+
+```julia
+get_surface_matrices(participant, session, framenumbers, root_folder=root_folder)
+```
+
+Extracts surface matrices for specific frames.
+
+### Arguments
+- `participant`: String identifier for the participant
+- `session`: String identifier for the session
+- `framenumbers`: Array of frame numbers
+- `root_folder`: Optional. Root directory path
+
+### Returns
+- DataFrame with surface matrices for specified frames
+
+### Description
+Retrieves surface transformation matrices for given frame numbers of a participant's session.
+
+---
+
+## get_gazes_and_fixations_by_frame_and_surface
+
+```julia
+get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations, gazes_file="", fixations_file="")
+```
+
+Combines gaze and fixation data with frame and surface information.
+
+### Arguments
+- `all_frame_objects`: DataFrame with frame object information
+- `all_trial_surfaces_gazes`: DataFrame with gaze data
+- `all_trial_surfaces_fixations`: DataFrame with fixation data
+- `gazes_file`: Optional. Path to CSV file with gaze data
+- `fixations_file`: Optional. Path to CSV file with fixation data
+
+### Returns
+- Tuple of (target_gazes, target_fixations) DataFrames
+
+### Description
+Joins gaze and fixation data with frame and surface information.
+
+---
+
+## get_all_gazes_and_fixations_by_frame
+
+```julia
+get_all_gazes_and_fixations_by_frame(sets)
+```
+
+Collects all gazes and fixations for given sets.
+
+### Arguments
+- `sets`: Array of set identifiers
+
+### Returns
+- Tuple of (all_gazes, all_fixations) DataFrames
+
+### Writes CSVs
+- "all_trial_gazes.csv" in the root folder
+- "all_trial_fixations.csv" in the root folder
+
+### Description
+Aggregates gaze and fixation data across multiple sets and calculates trial times.
+
+---
+
+## get_surfaces_for_all_objects
+
+```julia
+get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, image_sizes)
+```
+
+Assigns surfaces to objects for all frames.
+
+### Arguments
+- `yolo_coordinates`: DataFrame with YOLO object coordinates
+- `surface_positions`: DataFrame with surface position data
+- `root_folder`: Root directory path
+- `frames_corrected`: DataFrame with corrected frame numbers
+- `image_sizes`: DataFrame with image dimensions
+
+### Returns
+- DataFrame with objects and their assigned surfaces
+
+### Writes CSV
+- "all_frame_objects_surfaces.csv" in the root folder
+
+### Description
+Determines which surface each object belongs to for all frames.
+
+---
+
+## get_surface_for_frame_objects
+
+```julia
+get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
+```
+
+Assigns surfaces to objects in a single frame.
+
+### Arguments
+- `frame_objects`: DataFrame with objects in the frame
+- `frame_surfaces`: DataFrame with surface data for the frame
+- `img_width`: Width of the image
+- `img_height`: Height of the image
+
+### Returns
+- DataFrame with objects and their assigned surfaces
+
+### Description
+Determines which surface each object belongs to in a specific frame.
+
+---
+
+## collect_image_dimensions
+
+```julia
+collect_image_dimensions(recognized_images_folder_path::String)
+```
+
+Collects dimensions of images in a folder.
+
+### Arguments
+- `recognized_images_folder_path`: Path to the folder containing images
+
+### Returns
+- DataFrame with image dimensions
+
+### Writes CSV
+- "image_sizes.csv" in the root folder
+
+### Description
+Processes images in a folder to extract their dimensions.
+
+---
+
+## get_joint_attention_fixations
+
+```julia
+get_joint_attention_fixations(set, session)
+```
+
+Calculates joint attention based on fixations.
+
+### Arguments
+- `set`: String identifier for the set
+- `session`: String identifier for the session
+
+### Returns
+- DataFrame with joint attention fixations
+
+### Description
+Computes joint attention by joining fixation data from director and matcher.
+
+---
+
+## get_joint_attention_gaze_positions
+
+```julia
+get_joint_attention_gaze_positions(set, session)
+```
+
+Calculates joint attention based on gaze positions.
+
+### Arguments
+- `set`: String identifier for the set
+- `session`: String identifier for the session
+
+### Returns
+- DataFrame with joint attention gaze positions
+
+### Description
+Computes joint attention by joining gaze position data from director and matcher.
+
+---
+
+## read_intrinsics
+
+```julia
+read_intrinsics(file_path)
+```
+
+Reads camera intrinsics from a binary file.
+
+### Arguments
+- `file_path`: Path to the binary file
+
+### Returns
+- Dictionary with camera intrinsics data
+
+### Description
+Extracts camera intrinsics information from a binary file using MsgPack.
