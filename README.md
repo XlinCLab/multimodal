@@ -2,6 +2,8 @@
 
 This is a collection of scripts in Julia to preprocess the multimodal naturalistic data collected using Lab Streaming Layer and Pupil Core mobile eye-tracker. `Functions.jl` contains a collection of Julia functions designed for processing eye-tracking data, handling various data formats, and performing transformations. These functions are particularly tailored for working with data from the DGAME project. The data comes in .csv files for fixations, gazes and audio annotations, .mp4 files for video, and .xdf, .json and binaty formats for other files.
 
+The `functions list.md` has documentation for all the functions, if you'd like to adapt this pipeline for your specific goals.
+
 The DGAME project is a naturalistic interactive experimental setting, where two participant separated by an obstacle (a 4x4 wooden shelf) have to reorder the objects on the shelf. Objects may be unique (one signgle batter per shelf) or duplicated (two identical candles). the Director has a stack of cards with pictures of the two adjacent cells of the shelf holding objects, then they have to come up with the instructions for the Matcher to move one of the objects to match the picture. Some of the cells are closed from the side of the Director, so they cannot see all the objects. In half of the trials the Director and the Matcher cannot see the faces of each other. Every pair of participants have four sessions, 10 minutes each.
 
 Please see the 'sample data structure DGAME. txt' for the structure of folders and files from the eye-tracker and annotations. The description of the data structure is in 'data structure description.txt'
