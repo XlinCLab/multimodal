@@ -40,10 +40,9 @@ function get_json_timestamp(participant, session, root_folder=root_folder)
     return (start_time_synced_s, duration)
 end
 
-function read_timestamps_from_xdf(setting::String, root_folder::String="")
-    if root_folder==""
-        root_folder="/Users/varya/Desktop/Julia/DGAME data/xdf"
-    end
+function read_timestamps_from_xdf(setting::String, root_folder=root_folder)
+        root_folder=root_folder*"/xdf"
+
     sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])
     director_files = readdir(joinpath(root_folder,  setting, "Director"))
     #setting = "04" #for testing

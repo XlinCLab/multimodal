@@ -47,6 +47,7 @@ To use the functions in this repository, ensure you have the following Julia pac
 
 ```julia
 using Pkg
+Pkg.add("FileIO")
 Pkg.add("XDF")
 Pkg.add("EzXML")
 Pkg.add("XMLDict")

@@ -1,7 +1,9 @@
+
 # this is the main script, that runs the pipeline
 include("functions.jl")
 root_folder = "/Users/varya/Desktop/Julia/DGAME data"
 labels_folder = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/labels"
+yolo_output_path = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output"
 
 # every set has two participants and four sessions
 sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
@@ -58,7 +60,7 @@ end
 #lables_folder is a folder with labels .txt files for tne frames woth objects recognized by Yolo
 yolo_coordinates = get_all_yolo_coordinates(labels_folder)
 
-yolo_output_path = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output"
+
 image_sizes = collect_image_dimensions(yolo_output_path)
 
 
