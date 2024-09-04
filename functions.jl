@@ -41,7 +41,7 @@ function get_json_timestamp(participant, session, root_folder=root_folder)
 end
 
 function read_timestamps_from_xdf(setting::String, root_folder=root_folder)
-        root_folder=root_folder*"/xdf"
+        root_folder=joinpath(root_folder,"/xdf")
 
     sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])
     director_files = readdir(joinpath(root_folder,  setting, "Director"))
@@ -708,7 +708,7 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
     end
 
     if isempty(surface_positions)
-        data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
+        data, surf_names = TextParse.csvread(joinpath(root_folder,"all_surface_matrices.csv"))
         surface_positions =  DataFrame()
         for (i, surf_name) in enumerate(surf_names)
             surface_positions[!, Symbol(surf_name)] = data[i]
@@ -733,6 +733,11 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
         image_sizes.set = lpad.(string.(image_sizes.set), 2, '0')
         image_sizes.session = lpad.(string.(image_sizes.session), 2, '0')
     end
+    if typeof(surface_positions.set[1]) == Int64  || any(x -> length(x) == 1, surface_positions.set) || any(x -> length(x) == 1, surface_positions.session)
+        surface_positions.set = lpad.(string.(surface_positions.set), 2, '0')
+        surface_positions.session = lpad.(string.(surface_positions.session), 2, '0')
+    end
+
     if typeof(frames_corrected.session[1]) == Int64  || any(x -> length(x) == 1, frames_corrected.session)
         frames_corrected.session = lpad.(string.(frames_corrected.session), 2, '0')
     end
@@ -852,6 +857,35 @@ function print_folder_structure(path::String, indent::String = "")
         end
     end
 end
+
+function get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
+    #type checks for dataset loaded from file - set and session are there numbers
+    if typeof(all_frame_objects.set[1]) == Int64
+        all_frame_objects.set = lpad.(string.(all_frame_objects.set), 2, '0')
+        all_frame_objects.session = lpad.(string.(all_frame_objects.session), 2, '0')
+    end
+    if typeof( all_trial_surfaces_gazes.session[1]) == Int64 
+        all_trial_surfaces_gazes.session = lpad.(string.( all_trial_surfaces_gazes.session), 2, '0')
+    end
+    if typeof(all_trial_surfaces_fixations.session[1]) == Int64 
+        all_trial_surfaces_fixations.session = lpad.(string.(all_trial_surfaces_fixations.session), 2, '0')
+    end
+  
+    all_trial_surfaces_fixations.set .= [p[1:2] for p in all_trial_surfaces_fixations.participant]
+    all_trial_surfaces_gazes.set .= [p[1:2] for p in all_trial_surfaces_gazes.participant]
+    # Join all_frame_objects with all_trial_surfaces_gazes
+    joined_gazes = innerjoin(all_frame_objects, all_trial_surfaces_gazes, on = [:set, :session, :frame_number, :surface_number => :surface])
+    
+    # Join the result with all_trial_surfaces_fixations
+    joined_fixations = innerjoin(all_frame_objects, all_trial_surfaces_fixations, on = [:set, :session, :frame_number, :surface_number => :surface])
+    CSV.write(joinpath(root_folder,"all_trial_surfaces_gazes_with_objects.csv"), joined_gazes)
+    CSV.write(joinpath(root_folder,"all_trial_surfaces_fixations_with_objects.csv"), joined_fixations)
+    return joined_fixations, joined_gazes
+end
+
+#additional utilies to plot surfaces and see if something is wrong 
+#note: CairoMakie flips the background image for whatever reason
+#fix image sizes in this function
 function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write_to_file=false)
     #this function is work in progress
     img_width = 1024
@@ -875,8 +909,6 @@ function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write
     return surface_coords
 end
 
-#additional utiliies to plot surfaces and see if something is wrong 
-#note: CairoMakie flips the background image for whatever reason
 function plot_surfaces(surface_coordinates, img_width, img_height, background_image_path)
     img = FileIO.load(background_image_path)
     img = rotl90(img)

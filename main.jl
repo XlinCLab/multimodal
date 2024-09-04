@@ -2,6 +2,7 @@
 # this is the main script, that runs the pipeline
 include("functions.jl")
 root_folder = "/Users/varya/Desktop/Julia/DGAME data"
+#these are paths to object coordinates and images, we will only get them in part two
 labels_folder = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/labels"
 yolo_output_path = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output"
 
@@ -15,11 +16,6 @@ get_all_timestamps_json(sets, root_folder)
 get_lag_ET(sets, root_folder)
 #Get all the frames of interest (200 milliseconds primary to the noun onset
 #check if all the april tags are recognized, if not
-
-# get all the fixations for all participants I have
-#Read the audio transcription, select the target object mentions, tokenize all nouns (participant can call the same object with different words)
-#Read all surface fixations files, clean by surface, combine into one dstaset, align timelines, filter by +- n milliseconds from target noun onset
-#At the moment tjis is +- 1 sec from the word onset
 
 # Open a log file for writing
 log_file = open("combine_fixations_by_nouns.log", "w")
@@ -36,8 +32,6 @@ frames = get_frames_from_fixations(all_trial_surfaces_fixations)
 #get a frame with maximum april tags from 1 sec to the noun onset period
 frames_corrected = check_april_tags_for_frames(frames)
 
-
-
 #read from file if needed, CSV package cannot handle surface transformation matrices, so use TextParse
 #frames_corrected = CSV.read("$root_folder/frame_numbers_corrected_with_tokens.csv", DataFrame)
 
@@ -46,13 +40,12 @@ frames_corrected = check_april_tags_for_frames(frames)
 surface_positions = get_all_surface_matrices_for_frames(frames_corrected)
 #in case, you'd like to download it from file
 if isempty(surface_positions)
-    data, surf_names = TextParse.csvread("$root_folder/all_surface_matrices.csv")
+    data, surf_names = TextParse.csvread(joinpath(root_folder,"all_surface_matrices.csv"))
     surface_positions =  DataFrame()
     for (i, surf_name) in enumerate(surf_names)
         surface_positions[!, Symbol(surf_name)] = data[i]
     end
 end
-
 
 
 #Get all coordinates for all recognized objects for all frames and write them to one dataset
@@ -63,36 +56,30 @@ yolo_coordinates = get_all_yolo_coordinates(labels_folder)
 
 image_sizes = collect_image_dimensions(yolo_output_path)
 
-
-#get all surfaces for all recogized objects for every frame and write the aggregated table to a csv file
-#it will be written to a cvs file "all_frame_objects_surfaces.csv"
-#and yolo coordinates for all objects recognized in the frames are in "all_yolo_coordinates.csv"
-#surface_positions is a table with all the surfaces and their positions that we have put into "all_surface_matrices.csv"
-#check your recognized image sizes and correct them if needed, otherwise the coordinates will not be calculated properly
-#!NB not all frames have recognized surfaces, even if all the april tags are visible
-#it might be the case that there are no surfaces for 30 frames in a row (e.g. 08_01, session 3, frames 19763-1979, no surfaces recognized)
-# in this case object position will be 'outside all'
-
-#uncomment if you want to load yolo_coordinates and surface positions from files that were made by the previous run
-#yolo_coordinates = CSV.read("/Users/varya/Desktop/Julia/all_yolo_coordinates.csv", DataFrame)
-# data, surf_names = TextParse.csvread("/Users/varya/Desktop/Julia/all_surface_matrices.csv")
+#uncomment the following lines if you want to load yolo_coordinates and surface positions from files that were made by the previous run
+#yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv", DataFrame)
+# data, surf_names = TextParse.csvread(joinpath(root_folder,"all_surface_matrices.csv")
 # surface_positions =  DataFrame()
 # for (i, surf_name) in enumerate(surf_names)
 #     surface_positions[!, Symbol(surf_name)] = data[i]
 # end
-# frames_corrected = CSV.read("/Users/varya/Desktop/Julia/frame_numbers_corrected_with_tokens.csv", DataFrame)
-# image_sizes = CSV.read("/Users/varya/Desktop/Julia/image_sizes.csv", DataFrame)
+# frames_corrected = CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv", DataFrame)
+# image_sizes = CSV.read(joinpath(root_folder,"image_sizes.csv", DataFrame)
 
 all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, image_sizes)
 
-#Get all the fixations for target objects only 
-#(for the object called in the current noun, 1 sec before and after noun onset)
-# Here we collect all the fixations from scratch again, but one can also load them from file
-#then use an empty DataFrame instead of all_trial_surfaces_gazes and all_trial_surfaces_fixations
-all_trial_surfaces_gazes_file="$root_folder/all_trial_surfaces_gazes.csv"
-all_trial_surfaces_fixations_file="$root_folder/all_trial_surfaces_fixations.csv"
+#read from file if needed
+#all_frame_objects = CSV.read(joinpath(root_folder,"all_frame_objects_surfaces.csv"), DataFrame)
+#all_trial_surfaces_fixations = CSV.read(joinpath(root_folder,"all_trial_fixations.csv"), DataFrame)
+#all_trial_surfaces_gazes = CSV.read(joinpath(root_folder,"all_trial_gazes.csv"), DataFrame)
+#now let's join this with the gazes and fixations, so we have all objects for all frames of interest
+all_trial_surfaces_gazes_with_objects, all_trial_surfaces_fixations_with_objects = get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
+
+#uncomment the following line if you want to load all gazes and fixations from a file that was made by the previous run
+#all_trial_surfaces_gazes_file=joinpath(root_folder,"all_trial_surfaces_gazes.csv")
+#all_trial_surfaces_fixations_file=joinpath(root_folder,"all_trial_surfaces_fixations.csv")
 #Uncomment if you want to load all_frame_objects from files that were made by the previous run
-#all_frame_objects = CSV.read("$root_folder/all_frame_objects_surfaces.csv", DataFrame)
+#all_frame_objects = CSV.read(joinpath(root_folder,"all_frame_objects_surfaces.csv"), DataFrame)
 
 target_gazes, target_fixations =  get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
  

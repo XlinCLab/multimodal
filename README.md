@@ -72,7 +72,7 @@ include("functions.jl")
 root_folder = ""
 #Insert here the results of the CV module
 labels_folder = "labels"
-
+yolo_output_path = "path/to/yolo/output"
 # every set has two participants and four sessions
 sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
 surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
@@ -138,7 +138,6 @@ At the moment trial is +- 1 sec from the word onset
 !NB Yolo may change image size deleting the black borders, so we need to check the image sizes
 
 ```julia
-yolo_output_path = "path/to/yolo/output"
 image_sizes = collect_image_dimensions(yolo_output_path)
 ```
 
@@ -154,6 +153,8 @@ in this case object position will be 'outside all'
 #get all surfaces for all recogized objects for every frame and write the aggregated table to a csv file
 #it will be written to a cvs file "all_frame_objects.csv"
 all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, image_sizes)
+#now let's join this with the gazes and fixations, so we have all objects for all frames of interest
+all_trial_surfaces_gazes_with_objects, all_trial_surfaces_fixations_with_objects = get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
 
 #Get all the fixations for target objects only 
 #(for the object called in the current noun, 1 sec before and after noun onset)
