@@ -66,6 +66,8 @@ image_sizes = collect_image_dimensions(yolo_output_path)
 # frames_corrected = CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv", DataFrame)
 # image_sizes = CSV.read(joinpath(root_folder,"image_sizes.csv", DataFrame)
 
+    #ADD FACE
+
 all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, image_sizes)
 
 #read from file if needed
@@ -73,7 +75,7 @@ all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_posit
 #all_trial_surfaces_fixations = CSV.read(joinpath(root_folder,"all_trial_fixations.csv"), DataFrame)
 #all_trial_surfaces_gazes = CSV.read(joinpath(root_folder,"all_trial_gazes.csv"), DataFrame)
 #now let's join this with the gazes and fixations, so we have all objects for all frames of interest
-all_trial_surfaces_gazes_with_objects, all_trial_surfaces_fixations_with_objects = get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
+all_trial_gazes_with_objects, all_trial_fixations_with_objects = get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
 
 #uncomment the following line if you want to load all gazes and fixations from a file that was made by the previous run
 #all_trial_surfaces_gazes_file=joinpath(root_folder,"all_trial_surfaces_gazes.csv")
