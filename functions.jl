@@ -309,20 +309,38 @@ function get_and_reannotate_words(set, session, root_folder=root_folder)
     conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
     condition = conditions[session]
     words_folder = joinpath( root_folder,"AUDIO", set,"Wortlisten")
-    try
+    words = try
         CSV.read(joinpath(words_folder, "words_$set"*"_$condition.csv"), DataFrame) 
     catch e
         println("No audio file: set: $set session: $session: ")
         return DataFrame()
     end
-
-    words = CSV.read(joinpath(words_folder, "words_$set"*"_$condition.csv"), DataFrame) 
     target_words = filter(row -> !ismissing(row.pos) , words)|>
     df -> rename!(df, names(df) .=> ["line","tmin","text","tmax","condition", "face", "set", "pattern","pos"]) |>
     df -> filter!(row -> row.pos == "N", df)  |>
     df -> transform!(df, :text => ByRow(lowercase) => :text) |>
     df -> transform!(df, :tmin => ByRow(x -> round(x/10000000, digits=7)) => :time)|>
     df -> select!(df, :text, :time, :face)
+
+    try                 
+        words_to_tokens = CSV.read(joinpath(root_folder, "AUDIO", "Objektbezeichnungen.csv"), DataFrame, types=Dict(:subject=>String, :condition=>String)) 
+        target_tokens = words_to_tokens |> 
+                        df -> rename(df, names(df) .=> strip.(string.(names(df)))) |>
+                        row -> filter( row -> row.subject == set && row.condition==condition, row) |>
+                        df -> select(df, :name, :token) |>
+                        df -> transform(df, :token => ByRow(lowercase) => :token) |>
+                        df -> transform(df, :name => ByRow(lowercase) => :name) |>
+                        df -> transform(df, :name => ByRow(x -> replace(x, r" " => "")) => :name) 
+
+        target_words = leftjoin(target_words, target_tokens , on = :text => :name) |>
+        df -> transform!(df, :token => ByRow(row -> ismissing(row) ? missing : row) => :text) |>
+        df -> select!(df, :text, :time, :face) |>
+        df -> filter!(row -> !ismissing(row.text), df)
+
+    catch e
+        println(e)
+        println("NB!!! No object names file, the actual words for the objects will be used, a lot of data for the objects will be missing")
+    end
 
     #delete consequent movements of the same object
     for i in nrow(target_words):-1:2
@@ -332,6 +350,7 @@ function get_and_reannotate_words(set, session, root_folder=root_folder)
     end
     return target_words
 end
+
 
 function get_set_fixations_for_nouns(set::String, data_type)
     #set="08" for testing
@@ -649,28 +668,32 @@ end
 
 function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations, gazes_file="", fixations_file="")
     #get the gazes and fixations for the surface
+    if typeof(all_frame_objects.set[1]) == Int64
+        all_frame_objects.set = lpad.(string.(all_frame_objects.set), 2, '0')
+        all_frame_objects.session = lpad.(string.(all_frame_objects.session), 2, '0')
+    end
+    if typeof( all_trial_surfaces_gazes.session[1]) == Int64 
+        all_trial_surfaces_gazes.session = lpad.(string.(all_trial_surfaces_gazes.session), 2, '0')
+    end
+    if typeof(all_trial_surfaces_fixations.session[1]) == Int64 
+        all_trial_surfaces_fixations.session = lpad.(string.(all_trial_surfaces_fixations.session), 2, '0')
+    end
     surfaces = rename(all_frame_objects, :object => :token, :surface_number => :surface) |>
     df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) |>
     df -> transform(df, :session =>ByRow(x-> lpad(x, 2, "0")) => :session)
 
-    if isempty(all_trial_surfaces_gazes) && gazes_file != ""
-        gazes = CSV.read(gazes_file, DataFrame) |>
-        df -> rename(df, :noun => :token) |>
-        df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) 
-    else
-        gazes =  rename(all_trial_surfaces_gazes, :noun => :token) |>
-        df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) 
-    end
-    if isempty(all_trial_surfaces_fixations) && fixations_file != ""
-        fixations = CSV.read(fixations_file, DataFrame) |>
-        df -> rename(df, :object => :token) |>
-        df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) 
-    else
-        fixations = rename(all_trial_surfaces_fixations, :noun => :token) |>
-        df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set)
-    end
-    target_gazes = leftjoin(gazes, surfaces, on = [:frame_number, :set, :session, :token, :surface])
-    target_fixations = leftjoin(fixations, surfaces, on = [:frame_number, :set, :session, :token, :surface])
+    gazes =  rename(all_trial_surfaces_gazes, :noun => :token) |>
+    df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) 
+
+    fixations = rename(all_trial_surfaces_fixations, :noun => :token) |>
+    df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set)
+
+    #we don't need face here, only target gazes, only take gazes and fixations on the target object
+    # GAZES DATASET DOES NOT GO THROUGH DICTIONARY
+    target_gazes = innerjoin(gazes, surfaces, on = [:frame_number, :set, :session, :token, :surface]) 
+    target_fixations = innerjoin(fixations, surfaces, on = [:frame_number, :set, :session, :token, :surface])
+    CSV.write("$root_folder/target_gazes_1sec.csv", target_gazes)
+    CSV.write("$root_folder/target_fixations_1sec.csv", target_fixations)
     return target_gazes, target_fixations
 end
 
@@ -790,7 +813,6 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
             min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
             if object.x >= min_x && object.x <= max_x && object.y >= min_y && object.y <=max_y
                 object.surface_number = surface.surface
-                println("Object is inside surface: $(surface.surface)")
                 continue
             end
         end
@@ -805,7 +827,6 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
                 println("min_x: $min_x, max_x: $max_x, min_y: $min_y, max_y: $max_y")
                 if object.x >= min_x && object.x <= max_x && object_y >= min_y && object_y <=max_y
                     object.surface_number = surface.surface
-                    println("Object is inside surface: $(surface.surface)")
                     continue
                 end
             end
@@ -875,14 +896,21 @@ function get_object_position_for_all_trial_fixations(all_frame_objects, all_tria
     all_trial_surfaces_gazes.set .= [p[1:2] for p in all_trial_surfaces_gazes.participant]
     # Join all_frame_objects with all_trial_surfaces_gazes
     joined_gazes = leftjoin( all_trial_surfaces_gazes, all_frame_objects, on = [:set, :session, :frame_number, :surface => :surface_number])
-    
     # Join the result with all_trial_surfaces_fixations
     joined_fixations = leftjoin( all_trial_surfaces_fixations, all_frame_objects, on = [:set, :session, :frame_number, :surface => :surface_number])
+
     CSV.write(joinpath(root_folder,"all_trial_surfaces_gazes_with_objects.csv"), joined_gazes)
     CSV.write(joinpath(root_folder,"all_trial_surfaces_fixations_with_objects.csv"), joined_fixations)
     return joined_fixations, joined_gazes
 end
 
+#functions for exploratory Plots
+function surface_heatmap() 
+    #for each session:
+        # fixations on face
+        #fixations on hands
+        # fixations on target objects
+end
 #additional utilies to plot surfaces and see if something is wrong 
 #note: CairoMakie flips the background image for whatever reason
 #fix image sizes in this function
@@ -1005,3 +1033,4 @@ function read_intrinsics(file_path)
     data = MsgPack.unpack(binary_content)
     return data
 end
+

@@ -25,13 +25,16 @@ redirect_stdout(log_file)
 all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
 # Yolo may change image size deleting the black borders, so we need to check the image sizes
 close(log_file)
-
+redirect_stdout(stdout)
 # get frames of interest (200 ms before the noun onset)
 frames = get_frames_from_fixations(all_trial_surfaces_fixations)
 #correct frame numbers according to april tags recognized
 #get a frame with maximum april tags from 1 sec to the noun onset period
-frames_corrected = check_april_tags_for_frames(frames)
 
+log_file = open("correcting frame numbers.log", "w")
+redirect_stdout(log_file) 
+frames_corrected = check_april_tags_for_frames(frames)
+redirect_stdout(stdout)
 #read from file if needed, CSV package cannot handle surface transformation matrices, so use TextParse
 #frames_corrected = CSV.read("$root_folder/frame_numbers_corrected_with_tokens.csv", DataFrame)
 
@@ -52,8 +55,6 @@ end
 #it will be written to a cvs file "all_yolo_coordinates.csv"
 #lables_folder is a folder with labels .txt files for tne frames woth objects recognized by Yolo
 yolo_coordinates = get_all_yolo_coordinates(labels_folder)
-
-
 image_sizes = collect_image_dimensions(yolo_output_path)
 
 #uncomment the following lines if you want to load yolo_coordinates and surface positions from files that were made by the previous run
@@ -83,10 +84,8 @@ all_trial_gazes_with_objects, all_trial_fixations_with_objects = get_object_posi
 #Uncomment if you want to load all_frame_objects from files that were made by the previous run
 #all_frame_objects = CSV.read(joinpath(root_folder,"all_frame_objects_surfaces.csv"), DataFrame)
 
+#check the join here, we need inner but with face#or add an extra column which tells where is the target object
 target_gazes, target_fixations =  get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
- 
-CSV.write("$root_folder/target_gazes_1sec.csv", target_gazes)
-CSV.write("$root_folder/target_fixations_1sec.csv", target_fixations)
 
 #this is an optional part to plot a frame if there is something suspicious going on with the surfaces
 #surface_coordinates=get_all_surfaces_for_a_frame(19787, frame_surfaces)
