@@ -21,17 +21,18 @@ using LinearAlgebra
 using TextParse
 using CairoMakie
 using Images
+using MixedModels
 
 # functions that create aggregated tables with timestamps, lags and coordinates
 function get_json_timestamp(participant, session, root_folder=root_folder)
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
     surface_session = surface_sessions[session]
     session_file = joinpath(root_folder, "DGAME3_$participant", "$surface_session", "info.player.json")
-    println(session_file)
+    println(out,session_file)
     try
         JSON.parsefile(session_file)
     catch e
-        println("No json file for $participant for this session: $session")
+        println(out,"No json file for $participant for this session: $session")
         return (0,0)
     end
     info= JSON.parsefile(session_file)
@@ -52,7 +53,7 @@ function read_timestamps_from_xdf(setting::String, root_folder=root_folder)
         try
             sessions[file[end-5:end-4]]
         catch e
-            println("No session for $file or file is irrelavant")
+            println(out,"No session for $file or file is irrelavant")
             continue
         end
         session = sessions[file[end-5:end-4]]
@@ -61,7 +62,7 @@ function read_timestamps_from_xdf(setting::String, root_folder=root_folder)
         # the numbers of streams are random in terms of what is the contents
         #so we have to check the contents of the streams by name
         for i in eachindex(exp_set)
-            println(exp_set[i]["name"])
+            println(out,exp_set[i]["name"])
             name=exp_set[i]["name"]
             if name == "audio"
                 audio_created = round(parse(Float64,xml_dict(exp_set[i]["header"])["info"]["created_at"]), digits=3)
@@ -106,13 +107,13 @@ function get_all_timestamps_json(sets, root_folder=root_folder)
         for session in ["01", "02", "03", "04"]
             start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
             if start_time_synced_s_dir == 0
-                println("No json file for $set for this session: $session")
+                println(out,"No json file for $set for this session: $session")
                 continue
             end
             push!(timestamps_json, (set, session,"ET_DESKTOP-5B8EI51", start_time_synced_s_dir, duration_dir))
             start_time_synced_s_matcher = get_json_timestamp(matcher, session)
             if start_time_synced_s_matcher == Dict()
-                println("No json file for $set for this session: $session")
+                println(out,"No json file for $set for this session: $session")
                 continue
             else
                 start_time_synced_s_matcher, duration_matcher = get_json_timestamp(matcher, session)
@@ -188,14 +189,14 @@ end
 
 #functions that read words, gazes, fixations and create a framelist with tokens
 
-function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder)
+function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder; out=stdout)
     #participant="05_01" #for testing
     participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
     lag_data= DataFrame()
     try 
         CSV.read(joinpath(root_folder,"lag_data.csv"), DataFrame)
     catch e
-        println("No lag data in file")
+        println(out,"No lag data in file")
     end 
     lag_data = CSV.read(joinpath(root_folder,"lag_data.csv"), DataFrame) |>
             #insert zeroes before single digits, so it fits the number of the set passed to the function         
@@ -211,16 +212,16 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
         lag_data = select(lag_data, [:stream, :lag_duration, :lag_timestamp, :first_timestamp_xdf])
     end
     if size(lag_data)[1] == 0
-        println("No lag data for $participant for this session: $session, times are not aligned ")
+        println(out,"No lag data for $participant for this session: $session, times are not aligned ")
         return DataFrame()
     end
 
     lag = lag_data.lag_timestamp[1]
     if  lag < 0
-        println("check timestamps for $participant for this session: $session, negative lag ")
+        println(out,"check timestamps for $participant for this session: $session, negative lag ")
         return DataFrame()
     elseif lag > 500
-        println("check timestamps for $participant for this session: $session, huge lag ")        
+        println(out,"check timestamps for $participant for this session: $session, huge lag ")        
         return DataFrame()
     end
     lag_zero = lag_data.first_timestamp_xdf[1]/1000
@@ -228,7 +229,7 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
     try
         readdir(participant_folder)
     catch e
-        println("No data for $participant for this session: $session")
+        println(out,"No data for $participant for this session: $session")
         return DataFrame()
     end
 
@@ -241,7 +242,7 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
     
         surface_files = [file for file in readdir(surface_folder)if occursin(data_type, file)]
         if size(surface_files)[1]==0
-            println("No data for $participant for this session: $session")
+            println(out,"No data for $participant for this session: $session")
             return DataFrame()
         end
         fixations_positions = CSV.read(joinpath(surface_folder, "$data_type"*"_face.csv"), DataFrame)
@@ -281,12 +282,12 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
         fixations_positions.session = fill(normal_session, nrow(fixations_positions))
         fixations_positions.lag = fill(lag, nrow(fixations_positions))
         n_of_fixations = size(fixations_positions)[1]
-        println("Data for $participant for this session: $n_of_fixations fixations ($data_type)")
+        println(out, "Data for $participant for this session: $n_of_fixations fixations ($data_type)")
         return fixations_positions
 end
 
 function get_frames_from_fixations(all_fixations)
-    frame_numbers = select(all_fixations, :frame_number, :participant, :session, :noun)
+    frame_numbers = select(all_fixations, :frame_number, :participant, :session, :noun, :noun_time)
     frame_numbers = unique!(frame_numbers)
     #take only matcher videos
     frame_numbers = filter(row -> endswith(row.participant, "_01"), frame_numbers)
@@ -305,14 +306,14 @@ end
 
 #functions that add times of words
 
-function get_and_reannotate_words(set, session, root_folder=root_folder)    
+function get_and_reannotate_words(set, session, root_folder=root_folder; out=stdout)    
     conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
     condition = conditions[session]
     words_folder = joinpath( root_folder,"AUDIO", set,"Wortlisten")
     words = try
         CSV.read(joinpath(words_folder, "words_$set"*"_$condition.csv"), DataFrame) 
     catch e
-        println("No audio file: set: $set session: $session: ")
+        println(out,"No audio file: set: $set session: $session: ")
         return DataFrame()
     end
     target_words = filter(row -> !ismissing(row.pos) , words)|>
@@ -330,7 +331,8 @@ function get_and_reannotate_words(set, session, root_folder=root_folder)
                         df -> select(df, :name, :token) |>
                         df -> transform(df, :token => ByRow(lowercase) => :token) |>
                         df -> transform(df, :name => ByRow(lowercase) => :name) |>
-                        df -> transform(df, :name => ByRow(x -> replace(x, r" " => "")) => :name) 
+                        df -> transform(df, :name => ByRow(x -> replace(x, r" " => "")) => :name) |>
+                        df -> transform(df, :token => ByRow(x -> replace(x, r"dose" => "creme")) => :token) 
 
         target_words = leftjoin(target_words, target_tokens , on = :text => :name) |>
         df -> transform!(df, :token => ByRow(row -> ismissing(row) ? missing : row) => :text) |>
@@ -338,8 +340,8 @@ function get_and_reannotate_words(set, session, root_folder=root_folder)
         df -> filter!(row -> !ismissing(row.text), df)
 
     catch e
-        println(e)
-        println("NB!!! No object names file, the actual words for the objects will be used, a lot of data for the objects will be missing")
+        println(out,e)
+        println(out, "NB!!! No object names file, the actual words for the objects will be used, a lot of data for the objects will be missing")
     end
 
     #delete consequent movements of the same object
@@ -352,9 +354,9 @@ function get_and_reannotate_words(set, session, root_folder=root_folder)
 end
 
 
-function get_set_fixations_for_nouns(set::String, data_type)
+function get_set_fixations_for_nouns(set::String, data_type; out=stdout)
     #set="08" for testing
-    println("Running get_set_fixations_for_noun for set $set and data type $data_type")
+    println(out,"Running get_set_fixations_for_noun for set $set and data type $data_type")
     if data_type == "fixations_on_surface"
         fixations_for_set = DataFrame(
             world_timestamp = Float64[],
@@ -404,7 +406,7 @@ function get_set_fixations_for_nouns(set::String, data_type)
             noun_time = Float64[]
         )
     else
-        println("wrong data type, choose fixations_on_surface or gaze_positions_on_surface")
+        println(out,"wrong data type, choose fixations_on_surface or gaze_positions_on_surface")
         return DataFrame()
     end
     words_sessions = ["01", "02", "03", "04"]
@@ -413,29 +415,29 @@ function get_set_fixations_for_nouns(set::String, data_type)
     nouns_for_set = 0
     for session in words_sessions
         #session = "02" #for testing
-        nouns = get_and_reannotate_words(set, session)
+        nouns = get_and_reannotate_words(set, session; out=out)
         if size(nouns)[1]==0
-            println("No data for the words for this session: $session")
+            println(out, "No data for the words for this session: $session")
             continue
         end
         
         surface_session = surface_sessions[session]
         if data_type == "fixations_on_surface"
-            matcher_fixations = read_surfaces("$set"*"_01", surface_session, "fixations_on_surface")
-            director_fixations = read_surfaces("$set"*"_02", surface_session, "fixations_on_surface")
+            matcher_fixations = read_surfaces("$set"*"_01", surface_session, "fixations_on_surface"; out=out)
+            director_fixations = read_surfaces("$set"*"_02", surface_session, "fixations_on_surface"; out=out)
         elseif data_type == "gaze_positions_on_surface"
-            matcher_fixations = read_surfaces("$set"*"_01", surface_session, "gaze_positions_on_surface")
-            director_fixations = read_surfaces("$set"*"_02", surface_session, "gaze_positions_on_surface")
+            matcher_fixations = read_surfaces("$set"*"_01", surface_session, "gaze_positions_on_surface"; out=out)
+            director_fixations = read_surfaces("$set"*"_02", surface_session, "gaze_positions_on_surface"; out=out)
         else
-            println("wrong data type, choose fixations_on_surface or gaze_positions_on_surface")
+            println(out,"wrong data type, choose fixations_on_surface or gaze_positions_on_surface")
             return DataFrame()
         end
         
         if size(matcher_fixations)[1]==0
-            println("No data for the matcher for this session: $session")
+            println(out,"No data for the matcher for this session: $session")
             continue
         elseif size(director_fixations)[1]==0
-            println("No data for the director for this session: $session, will only take data from the matcher")
+            println(out, "No data for the director for this session: $session, will only take data from the matcher")
             set_fixations = matcher_fixations
         else
             set_fixations = vcat(matcher_fixations, director_fixations)
@@ -445,17 +447,14 @@ function get_set_fixations_for_nouns(set::String, data_type)
         nouns_for_set += size(nouns)[1]
         #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
         nouns.time_windows = [(noun.time - 1, noun.time - 0.2, noun.time + 1) for noun in eachrow(nouns)]
-        println(size(nouns.time_windows)," time windows", " set $set session $session")
+        println(out,size(nouns.time_windows)," time windows", " set $set session $session")
         #set fixations for nouns as an empty dataset of the same structure
         fixations_for_nouns = fixations_for_set
         for noun in eachrow(nouns)
             start_time, frame_time, end_time = noun.time_windows
-
-            #this is an adaptation for Robert's thesis, delete later
-            #println("Noun: ", noun.text, " time: ", noun.time, "start_time: ", start_time, "end_time: ", end_time)
             fixations_in_window = filter(row -> row.time_corrected >= frame_time && row.time_corrected <= end_time, set_fixations)
             if size(fixations_in_window)[1]==0
-                println("No fixations in the period: frame_time $frame_time end $end_time")
+                println(out,"No fixations in the period: frame_time $frame_time end $end_time")
                 nouns_for_set -= 1
                 continue
             end
@@ -470,14 +469,14 @@ function get_set_fixations_for_nouns(set::String, data_type)
             fixations_for_nouns = vcat(fixations_for_nouns, fixations_in_window)
         end
         fixations_for_set = vcat(fixations_for_set, fixations_for_nouns)
-        println("Fixations in the session $session:")
-        println(size(fixations_for_set))
+        println(out,"Fixations in the session $session:")
+        println(out,size(fixations_for_set))
     end
-    println("Nouns for set $set: ", nouns_for_set)
+    println(out,"Nouns for set $set: ", nouns_for_set)
         return  fixations_for_set
 end
 
-function check_april_tags_for_frames(frames)
+function check_april_tags_for_frames(frames; out=stdout)
     if isempty(frames)
         frames = CSV.read("frame_numbers_with_tokens.csv", DataFrame) |>
         df -> transform!(df, :participant => ByRow(x-> x[1:2]) => :set) |>
@@ -491,8 +490,8 @@ function check_april_tags_for_frames(frames)
         #video="" #for testing
         surfaces_folder = joinpath(replace(video, "world.mp4" => ""),"exports")
         if !isdir(surfaces_folder)
-            println(surfaces_folder)
-            println("No surfaces for this session: $video")
+            println(out,surfaces_folder)
+            println(out,"No surfaces for this session: $video")
             continue
         end
         subfolders = [f for f in readdir(surfaces_folder ) if isdir(joinpath(surfaces_folder, f))]
@@ -508,16 +507,16 @@ function check_april_tags_for_frames(frames)
         end
         april_tags_dict = Dict(row[:world_index] => row[:num_detected_markers] for row in eachrow(april_tags))
         for frame in eachrow(frames)
-            println(frame.frame_number)
+            println(out,frame.frame_number)
             if haskey(april_tags_dict, frame.frame_number) && april_tags_dict[frame.frame_number] == 6
                 frame.new_frame_number = frame.frame_number
                 continue
             else
             #I want to have the frame with maximum tags recognized
             #but only before the onset, with 30 fps 200ms is 6 frames
-                println("not enough tags frame number: ", frame.frame_number)
+                println(out,"not enough tags frame number: ", frame.frame_number)
                 frame_tags = Dict(key => value for (key, value) in april_tags_dict if key >= frame.frame_number - 10 && key <= frame.frame_number + 6)
-                println(frame_tags)
+                println(out,frame_tags)
                 if isempty(frame_tags)
                     frame.new_frame_number = 0
                     continue
@@ -537,7 +536,7 @@ end
 function get_all_surface_matrices_for_frames(frames=DataFrame())
     if isempty(frames)
         frames=CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv"), DataFrame) 
-        println("frames read from file")
+        println(out,"frames read from file")
     end
     frames_sets_and_sessions =  select(frames, [:participant, :session, :new_frame_number]) |> unique |>
         df -> transform!(df, :new_frame_number => ByRow(x-> x) => :frame_number)
@@ -574,7 +573,7 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
     return all_surface_coordinates
 end
 
-function get_surface_matrices(participant,session,framenumbers, root_folder=root_folder)
+function get_surface_matrices(participant,session,framenumbers, root_folder=root_folder; out=stdout)
     #CSV.read cannot parse nested lists of coordinates
     #!NB this function does not return set and session
     #NB! this function does not check for markers detected
@@ -583,8 +582,8 @@ function get_surface_matrices(participant,session,framenumbers, root_folder=root
     try
         readdir(participant_folder)
     catch e
-        println("No data for $participant for this session: $session")
-        println(e)
+        println(out,"No data for $participant for this session: $session")
+        println(out,e)
         return DataFrame()
     end
     subfolders = [f for f in readdir(participant_folder) if isdir(joinpath(participant_folder, f))]
@@ -597,8 +596,8 @@ function get_surface_matrices(participant,session,framenumbers, root_folder=root
     try
         data, names = TextParse.csvread(joinpath(surface_folder, "$data_type"*"_face.csv"))
     catch e
-        println("No surface coordinates data for $participant for this session: $session")
-        println(joinpath(surface_folder, "$data_type"*"_face.csv"))
+        println(out,"No surface coordinates data for $participant for this session: $session")
+        println(out,joinpath(surface_folder, "$data_type"*"_face.csv"))
         return DataFrame()
     end
     surface_coordinates = DataFrame(
@@ -666,7 +665,7 @@ function transform_surface_corners(pos, matrix)
     return new_pos
 end
 
-function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations, gazes_file="", fixations_file="")
+function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations, gazes_file="", fixations_file=""; out=stdout)
     #get the gazes and fixations for the surface
     if typeof(all_frame_objects.set[1]) == Int64
         all_frame_objects.set = lpad.(string.(all_frame_objects.set), 2, '0')
@@ -682,28 +681,32 @@ function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_tri
     df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) |>
     df -> transform(df, :session =>ByRow(x-> lpad(x, 2, "0")) => :session)
 
-    gazes =  rename(all_trial_surfaces_gazes, :noun => :token) |>
+    gazes =  rename(all_trial_surfaces_gazes, :noun => :token, :frame_number => :gaze_frame_number) |>
     df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) 
 
     fixations = rename(all_trial_surfaces_fixations, :noun => :token) |>
     df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set)
 
     #we don't need face here, only target gazes, only take gazes and fixations on the target object
-    # GAZES DATASET DOES NOT GO THROUGH DICTIONARY
-    target_gazes = innerjoin(gazes, surfaces, on = [:frame_number, :set, :session, :token, :surface]) 
-    target_fixations = innerjoin(fixations, surfaces, on = [:frame_number, :set, :session, :token, :surface])
+            #frame numbers for objects are from the fixations dataset, 
+            #so gazes have different frame_number (as min(world))
+            #do not join by frame number here, use noun time instead
+            # but there is no noun time in surfaces - get it from fixations
+            #or include it at the object to surfaces step
+    target_gazes = innerjoin(gazes, surfaces, on = [:noun_time, :set, :session, :token, :surface]) 
+    target_fixations = innerjoin(fixations, surfaces, on = [:frame_number, :noun_time, :set, :session, :token, :surface])
     CSV.write("$root_folder/target_gazes_1sec.csv", target_gazes)
     CSV.write("$root_folder/target_fixations_1sec.csv", target_fixations)
     return target_gazes, target_fixations
 end
 
-function get_all_gazes_and_fixations_by_frame(sets)
-    println("Running get_all_gazes_and_fixations_by_frame for sets")
+function get_all_gazes_and_fixations_by_frame(sets; out=stdout)
+    println(out,"Running get_all_gazes_and_fixations_by_frame for sets")
     all_gazes = DataFrame()
     all_fixations = DataFrame()
     for set in sets
-        fixations = get_set_fixations_for_nouns(set,"fixations_on_surface")
-        gazes = get_set_fixations_for_nouns(set, "gaze_positions_on_surface")
+        fixations = get_set_fixations_for_nouns(set,"fixations_on_surface"; out)
+        gazes = get_set_fixations_for_nouns(set, "gaze_positions_on_surface"; out)
         all_gazes = vcat(all_gazes, gazes)
         all_fixations = vcat(all_fixations, fixations)
     end
@@ -724,10 +727,10 @@ function pixel_center_and_flip(x, y, img_width, img_height)
     return x, new_y
 end
 
-function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected,image_sizes)
+function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected,image_sizes; out=stdout)
     if isempty(frames_corrected)
         frames_corrected=CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv"), DataFrame) 
-        println("frames read from file")
+        println(out,"frames read from file")
     end
 
     if isempty(surface_positions)
@@ -739,11 +742,11 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
     end
     if isempty(yolo_coordinates)
         yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv"), DataFrame) 
-        println("yolo_coordinates read from file")
+        println(out,"yolo_coordinates read from file")
     end
     if isempty(image_sizes)
         image_sizes = CSV.read(joinpath(root_folder,"image_sizes.csv"), DataFrame) 
-        println("image_sizes read from file")
+        println(out,"image_sizes read from file")
     end
     #depending of if we have image sizes and yolo_coordinates in memory or from file#set can be integer or string
     #let's make it string
@@ -772,27 +775,29 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_
         set = frame.participant[1:2]
         current_size= filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, image_sizes)
         if isempty(current_size)
-            println("No image size for frame: $(frame.new_frame_number)")
+            println(out,"No image size for frame: $(frame.new_frame_number)")
             continue
         end
         img_width, img_height = current_size.image_width[1], current_size.image_height[1]
         
         frame_objects = filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, yolo_coordinates)
         if isempty(frame_objects)
-            println("No object coordinates for frame: $(frame.new_frame_number)")
+            println(out,"No object coordinates for frame: $(frame.new_frame_number)")
             continue
         end
         frame_surfaces = filter(row -> row[:world_index] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session && row[:surface] != "face", surface_positions)
         frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
         frame_object_with_surfaces.corected_frame_number = fill(frame.new_frame_number, nrow(frame_object_with_surfaces))
         frame_object_with_surfaces.frame_number = fill(frame.frame_number, nrow(frame_object_with_surfaces))
+        frame_object_with_surfaces.noun_time = fill(frame.noun_time, nrow(frame_object_with_surfaces))
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
-
+        
     end
     CSV.write("$root_folder/all_frame_objects_surfaces.csv", all_frame_objects)
     return all_frame_objects
 end
 
+#this function should be optimized later, use the least distance to the surface center
 function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
     #this function is work in progress
     # Select the relevant row based on world_index (frame number)
@@ -801,14 +806,14 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
     frame_objects.surface_number = fill("outside all", nrow(frame_objects))
     for object in eachrow(frame_objects)
         object.x, object.y, object.w, object.h =  transform_yolo_to_pixels(object.x, object.y, object.w, object.h,img_width, img_height)
-        println("Object: $(object.object), x: $(object.x), y: $(object.y)")
+        #println(out,"Object: $(object.object), x: $(object.x), y: $(object.y)")
         for surface in eachrow(frame_surfaces)
             # Extract the transformation matrix
             surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
             surface_corners = transform_surface_corners(corners, surf_to_img_trans)
             surface_center = transform_surface_to_image_coordinates(center[1], center[2], surf_to_img_trans)
-                #println("Surface $(surface.surface) center:")
-                 #println("x: $(surface_center[1]), y: $(surface_center[2])")
+                #println(out,"Surface $(surface.surface) center:")
+                 #println(out,"x: $(surface_center[1]), y: $(surface_center[2])")
             #check if object is inside the surface
             min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
             if object.x >= min_x && object.x <= max_x && object.y >= min_y && object.y <=max_y
@@ -823,8 +828,8 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
                 surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
                 surface_corners = transform_surface_corners(corners, surf_to_img_trans)
                 min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
-                println("Surface $(surface.surface) limits:")
-                println("min_x: $min_x, max_x: $max_x, min_y: $min_y, max_y: $max_y")
+                #println(out,"Surface $(surface.surface) limits:")
+                #println(out,"min_x: $min_x, max_x: $max_x, min_y: $min_y, max_y: $max_y")
                 if object.x >= min_x && object.x <= max_x && object_y >= min_y && object_y <=max_y
                     object.surface_number = surface.surface
                     continue
@@ -840,7 +845,6 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
                 surface_corners = transform_surface_corners(corners, surf_to_img_trans)
                 if object.x > minimum(surface_corners[:, 1]) && object.x < maximum(surface_corners[:, 1]) && object_y > minimum(surface_corners[:, 2]) && object_y < maximum(surface_corners[:, 2])
                     object.surface_number = surface.surface
-                    println("Object is inside surface: $(surface.surface)")
                     continue
                 end
             end
@@ -868,7 +872,7 @@ function print_folder_structure(path::String, indent::String = "")
         # Prepare the prefix for printing
         prefix = is_last ? "└── " : "├── "
         # Print the current entry
-        println(indent * prefix * entry)
+        println(out,indent * prefix * entry)
         
         # If the entry is a directory, recursively print its contents
         full_path = joinpath(path, entry)
@@ -906,15 +910,19 @@ end
 
 #functions for exploratory Plots
 function surface_heatmap() 
+    #this function is work in progress
     #for each session:
         # fixations on face
         #fixations on hands
         # fixations on target objects
 end
+
+#functions for the analysis
+
 #additional utilies to plot surfaces and see if something is wrong 
 #note: CairoMakie flips the background image for whatever reason
 #fix image sizes in this function
-function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write_to_file=false)
+function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write_to_file=false; out=stdout)
     #this function is work in progress
     img_width = 1024
     img_height = 768
@@ -924,7 +932,7 @@ function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write
     surface_coords = Dict()
     for surface in eachrow(frame_surfaces)
         #surface = eachrow(frame_surfaces)[1]
-        println("checking surface: $(surface.surface)")
+        println(out,"checking surface: $(surface.surface)")
         # Extract the transformation matrix
         transform_matrix=parse_transformation_matrix(surface.surf_to_dist_img_trans)
         corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
@@ -950,8 +958,8 @@ function plot_surfaces(surface_coordinates, img_width, img_height, background_im
     # Plot each surface
     for surface in surface_coordinates
         surface_name = surface[1]
-        println("Plotting surface: $surface_name, with corners: ")
-        println(surface[2])
+        println(out,"Plotting surface: $surface_name, with corners: ")
+        println(out,surface[2])
         surface_corners = surface[2]
         # Extracting the first two elements from each 4-element tuple and converting to Point2f
         preprocessed_coords = [(row[1], row[2])  for row in eachrow(surface_corners)]
@@ -992,7 +1000,7 @@ function collect_image_dimensions(recognized_images_folder_path::String)
                 push!(image_sizes, (frame_number,set,session, width, height))
         catch e
             # Handle the case where the file is not an image
-            println("Skipping file $file: $e")
+            println(out,"Skipping file $file: $e")
         end
     end
     CSV.write("$root_folder/image_sizes.csv", image_sizes)
