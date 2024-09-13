@@ -1,6 +1,7 @@
 Sample DGAME data structure for 2 participants and one session:
 
 ├── AUDIO
+|   |── Objektbezeichnungen
 │   ├── 12
 │   │   ├── Wortlisten
 │   │   │   ├── words_12_11.csv

@@ -98,8 +98,4 @@ target_gazes, target_fixations =  get_gazes_and_fixations_by_frame_and_surface(a
 ### analysis
     #fit the model
     #model = fit(MixedModel, @formula(dependant_variable ~ fixed_effects + (1|random_effects)), data)
-    model = fit(MixedModel, @formula(surface ~ face + session + (1+face + session|set) + + (1+face + session|set)), data)
 
-    print(summary(model))
-    pvalues = coeftable(model).cols[4]
-    print(pvalues)

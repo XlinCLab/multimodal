@@ -687,12 +687,6 @@ function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_tri
     fixations = rename(all_trial_surfaces_fixations, :noun => :token) |>
     df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set)
 
-    #we don't need face here, only target gazes, only take gazes and fixations on the target object
-            #frame numbers for objects are from the fixations dataset, 
-            #so gazes have different frame_number (as min(world))
-            #do not join by frame number here, use noun time instead
-            # but there is no noun time in surfaces - get it from fixations
-            #or include it at the object to surfaces step
     target_gazes = innerjoin(gazes, surfaces, on = [:noun_time, :set, :session, :token, :surface]) 
     target_fixations = innerjoin(fixations, surfaces, on = [:frame_number, :noun_time, :set, :session, :token, :surface])
     CSV.write("$root_folder/target_gazes_1sec.csv", target_gazes)
@@ -899,9 +893,9 @@ function get_object_position_for_all_trial_fixations(all_frame_objects, all_tria
     all_trial_surfaces_fixations.set .= [p[1:2] for p in all_trial_surfaces_fixations.participant]
     all_trial_surfaces_gazes.set .= [p[1:2] for p in all_trial_surfaces_gazes.participant]
     # Join all_frame_objects with all_trial_surfaces_gazes
-    joined_gazes = leftjoin( all_trial_surfaces_gazes, all_frame_objects, on = [:set, :session, :frame_number, :surface => :surface_number])
+    joined_gazes = leftjoin( all_trial_surfaces_gazes, all_frame_objects, on = [:set, :session, :frame_number, :noun_time, :surface => :surface_number])
     # Join the result with all_trial_surfaces_fixations
-    joined_fixations = leftjoin( all_trial_surfaces_fixations, all_frame_objects, on = [:set, :session, :frame_number, :surface => :surface_number])
+    joined_fixations = leftjoin( all_trial_surfaces_fixations, all_frame_objects, on = [:set, :session, :frame_number, :noun_time, :surface => :surface_number])
 
     CSV.write(joinpath(root_folder,"all_trial_surfaces_gazes_with_objects.csv"), joined_gazes)
     CSV.write(joinpath(root_folder,"all_trial_surfaces_fixations_with_objects.csv"), joined_fixations)
