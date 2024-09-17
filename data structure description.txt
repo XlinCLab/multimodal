@@ -1,8 +1,13 @@
 DGAME data: Root Directory with all the files
 	•	AUDIO/
+		 Objektbezeichnungen.csv:
+			name: The name of the object, as a participant prounounced it
+			token: The standardized token or category for the object, can only be: BATTERIE, BLUME, CREME, KERZE, SPRITZE, TASSE, TUBE, VASE
+			subject: Participant
+			condition: basically, the session number, but in other format
 	•	DyadNumber/
-	•	Wortlisten/
-	•	words_DyadNumber_11.csv: Contains lists of words used during the session. Each row represents a word, including its ID and other relevant metadata. There must be four files for each dyad: words_DyadNumber_11, words_DyadNumber_12, words_DyadNumber_21, words_DyadNumber_22. The numbers 11,12, 21, 22 correspond to sessions 01, 02, 03, 04. This is an unnecessary complication, but it was already like that, so all the functions are tailored for this naming, if you decide to change this, please check the functions.
+	•		Wortlisten/
+	•		words_DyadNumber_11.csv: Contains lists of words used during the session. Each row represents a word, including its ID and other relevant metadata. There must be four files for each dyad: words_DyadNumber_11, words_DyadNumber_12, words_DyadNumber_21, words_DyadNumber_22. The numbers 11,12, 21, 22 correspond to sessions 01, 02, 03, 04. This is an unnecessary complication, but it was already like that, so all the functions are tailored for this naming, if you decide to change this, please check the functions.
 
 	•	DGAME3_DyadNumber_01/: 01 is a Matcher’s data
 	•	    000/: Subdirectory for session data.

@@ -21,7 +21,7 @@ using LinearAlgebra
 using TextParse
 using CairoMakie
 using Images
-using MixedModels
+
 
 # functions that create aggregated tables with timestamps, lags and coordinates
 function get_json_timestamp(participant, session, root_folder=root_folder)

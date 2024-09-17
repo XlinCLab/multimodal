@@ -71,8 +71,11 @@ Pkg.add("Printf")
 include("functions.jl")
 root_folder = ""
 #Insert here the results of the CV module
-labels_folder = "labels"
+labels_folder = "path/to/yolo/output/labels"
+# Yolo may change image size deleting the black borders, so we need to check the sizes of the images
 yolo_output_path = "path/to/yolo/output"
+# this variable controls messages you get from the program - stout is console, but sometimes it will redirect them to a log file
+out=stdout
 # every set has two participants and four sessions
 sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
 surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
@@ -80,7 +83,7 @@ surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "00
 #Read all the Lab Streaming Layer timestamps from .xdf and .json files and aggregate them in one table
 get_all_timestamps_xdf(sets, root_folder)
 get_all_timestamps_json(sets, root_folder)
-get_lag_ET()
+get_lag_ET(sets)
 ```
 Get all the frames of interest (200 milliseconds primary to the noun onset):
 check if all the april tags are recognized, if not, get a frame with maximum april tags from 1 sec to the noun onset period
@@ -93,10 +96,7 @@ At the moment tjis is +- 1 sec from the word onset
 # Open a log file for writing
 log_file = open("combine_fixations_by_nouns.log", "w")
 # Redirect stdout to the log file
-redirect_stdout(log_file)
-    @info "This is the log file of the processing of the fixations by nouns, you can find all the missing values and errors here"
-all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets)
-# Yolo may change image size deleting the black borders, so we need to check the image sizes
+all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets; out = log_file)
 close(log_file)
 
 # get frames of interest (200 ms before the noun onset)
@@ -126,7 +126,6 @@ Here we get all transformation matrices for all frames in one aggregated table. 
 #transformation matrices will be written to a cvs file "all_surface_matrices.csv"
 surface_positions = get_all_surface_matrices_for_frames(frames_corrected)
 
-
 # coordinates for all recognized objects will be written to a cvs file "all_yolo_coordinates.csv"
 #lables_folder is a folder with labels .txt files for tne frames woth objects recognized by Yolo
 yolo_coordinates = get_all_yolo_coordinates(labels_folder)
@@ -152,7 +151,10 @@ in this case object position will be 'outside all'
 ```julia
 #get all surfaces for all recogized objects for every frame and write the aggregated table to a csv file
 #it will be written to a cvs file "all_frame_objects.csv"
-all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, image_sizes)
+#log files will have all the messages from processing - if you are missing data - this is the first place to look
+log_file = open("objects coordinates.log", "w")
+all_frame_objects = get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected, image_sizes; out=log_file)
+close(log_file)
 #now let's join this with the gazes and fixations, so we have all objects for all frames of interest
 all_trial_surfaces_gazes_with_objects, all_trial_surfaces_fixations_with_objects = get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
 
