@@ -42,7 +42,7 @@ function get_json_timestamp(participant, session, root_folder=root_folder)
 end
 
 function read_timestamps_from_xdf(setting::String, root_folder=root_folder)
-        root_folder=joinpath(root_folder,"/xdf")
+        root_folder=joinpath(root_folder,"xdf")
 
     sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])
     director_files = readdir(joinpath(root_folder,  setting, "Director"))
