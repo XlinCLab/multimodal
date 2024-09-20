@@ -354,7 +354,7 @@ function get_and_reannotate_words(set, session, root_folder=root_folder; out=std
 end
 
 
-function get_set_fixations_for_nouns(set::String, data_type; out=stdout)
+function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_end; out=stdout)
     #set="08" for testing
     println(out,"Running get_set_fixations_for_noun for set $set and data type $data_type")
     if data_type == "fixations_on_surface"
@@ -446,7 +446,7 @@ function get_set_fixations_for_nouns(set::String, data_type; out=stdout)
         # find all fixations that are -1 sec from the noun and up to +2 sec from the noun
         nouns_for_set += size(nouns)[1]
         #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
-        nouns.time_windows = [(noun.time - 1, noun.time - 0.2, noun.time + 1) for noun in eachrow(nouns)]
+        nouns.time_windows = [(noun.time + epoch_start, noun.time - 0.2, noun.time + epoch_end) for noun in eachrow(nouns)]
         println(out,size(nouns.time_windows)," time windows", " set $set session $session")
         #set fixations for nouns as an empty dataset of the same structure
         fixations_for_nouns = fixations_for_set
@@ -694,13 +694,13 @@ function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_tri
     return target_gazes, target_fixations
 end
 
-function get_all_gazes_and_fixations_by_frame(sets; out=stdout)
+function get_all_gazes_and_fixations_by_frame(sets , epoch_start, epoch_end; out=stdout)
     println(out,"Running get_all_gazes_and_fixations_by_frame for sets")
     all_gazes = DataFrame()
     all_fixations = DataFrame()
     for set in sets
-        fixations = get_set_fixations_for_nouns(set,"fixations_on_surface"; out)
-        gazes = get_set_fixations_for_nouns(set, "gaze_positions_on_surface"; out)
+        fixations = get_set_fixations_for_nouns(set,"fixations_on_surface", epoch_start, epoch_end; out)
+        gazes = get_set_fixations_for_nouns(set, "gaze_positions_on_surface", epoch_start, epoch_end; out)
         all_gazes = vcat(all_gazes, gazes)
         all_fixations = vcat(all_fixations, fixations)
     end

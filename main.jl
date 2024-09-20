@@ -19,13 +19,15 @@ get_lag_ET(sets, root_folder)
 #Get all the frames of interest (200 milliseconds primary to the noun onset
 #check if all the april tags are recognized, if not
 
-# not all the logs go to the log-file, why? Check functions for the out parameter
+# Here we define the epoch size for the fixation data, in seconds
+# the epoch_start is the time before the noun onset, the epoch_end is the time after the noun onset
+epoch_start, epoch_end = -1,1
+
 # Open a log file for writing
 log_file = open("combine_fixations_by_nouns.log", "w")
-# pass the logfile into a function, it has an optional parameter "out" whic is by default stdout
-# Redirect stdout to the log file
-    #@info "This is the log file of the processing of the fixations by nouns, you can find all the missing values and errors here"
-all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets; out=log_file)
+# pass the logfile into a function, it has a named parameter "out" which is by default stdout
+
+all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets, epoch_start, epoch_end; out=log_file)
 # Yolo may change image size deleting the black borders, so we need to check the image sizes
 close(log_file)
 

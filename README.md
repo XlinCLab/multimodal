@@ -90,13 +90,19 @@ check if all the april tags are recognized, if not, get a frame with maximum apr
 get all the fixations for the time period of interest for all participants:
 Read the audio transcription, select the target object mentions, tokenize all nouns (participant can call the same object with different words)
 Read all surface fixations files, clean by surface, combine into one dstaset, align timelines, filter by +- n milliseconds from target noun onset
-At the moment tjis is +- 1 sec from the word onset
+You can define the epoch size, assigning values to the epoch_start, epoch_end variables. The epoch_start is the time before the noun onset, the epoch_end is the time after the noun onset
 
 ```julia
+# Here we define the epoch size for the fixation data, in seconds
+# the epoch_start is the time before the noun onset, the epoch_end is the time after the noun onset
+epoch_start, epoch_end = -1,1
+
 # Open a log file for writing
 log_file = open("combine_fixations_by_nouns.log", "w")
-# Redirect stdout to the log file
-all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets; out = log_file)
+# pass the logfile into a function, it has a named parameter "out" which is by default stdout
+
+all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets, epoch_start, epoch_end; out=log_file)
+# Yolo may change image size deleting the black borders, so we need to check the image sizes
 close(log_file)
 
 # get frames of interest (200 ms before the noun onset)
