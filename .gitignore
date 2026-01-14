@@ -13,7 +13,6 @@
 *.n*
 *.i*
 *.f*
-*.toml
 *.Text*
 *.token
 *_cache*
