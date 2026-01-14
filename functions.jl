@@ -1,13 +1,19 @@
 #functions
 
 # using Pkg
+# import Pkg
 # Pkg.add("XDF")
 # Pkg.add("EzXML")
 # Pkg.add("XMLDict")
-#Pkg.add("JSON")
-#Pkg.add("LinearAlgebra")
-#Pkg.add("TextParse")
-#Pkg.add("MsgPack")
+# Pkg.add("JSON")
+# Pkg.add("LinearAlgebra")
+# Pkg.add("TextParse")
+# Pkg.add("MsgPack")
+# Pkg.add("FileIO")
+# Pkg.add("DataFrames")
+# Pkg.add("CSV")
+# Pkg.add("CairoMakie")
+# Pkg.add("Images")
 using FileIO
 using Printf
 Base.show(io::IO, f::Float64) = @printf(io, "%.2f", f)
