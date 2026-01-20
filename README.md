@@ -25,6 +25,12 @@ For each Director-Matcher pair, for each session:
 
 In the last month the priority was to get everything to work, so I apologize for the lack of documentation. I am planning to get everything nicely documentd in the nearest time.
 
+## Submodules
+This project makes use of `git` submodules. To sync and pull all updates from all submodules, use the following command
+```
+git submodule sync --recursive
+``` 
+
 ## Installation
 you would probably need to install Julia first:
 https://julialang.org/downloads/
