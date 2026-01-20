@@ -210,100 +210,103 @@ end
 
 #functions that read words, gazes, fixations and create a framelist with tokens
 
-function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder; out=stdout)
-    #participant="05_01" #for testing
-    participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
-    lag_data= DataFrame()
-    try 
-        CSV.read(joinpath(root_folder,"lag_data.csv"), DataFrame)
-    catch e
-        println(out,"No lag data in file")
-    end 
-    lag_data = CSV.read(joinpath(root_folder,"lag_data.csv"), DataFrame) |>
-            #insert zeroes before single digits, so it fits the number of the set passed to the function         
-            df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) |>
-            df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session) 
-    # Use the map function to apply the dictionary to the session column
-    lag_data.session = map(x -> get(surface_sessions, x, x), lag_data.session)
-    transform!(lag_data, :stream => (x -> ifelse.(x .== "ET_idslexp", "01", ifelse.(x .== "ET_DESKTOP-5B8EI51", "02", x))) => :participant)
-    lag_data.participant = [string(row.set, "_", row.participant) for row in eachrow(lag_data)]
-    
-    if size(lag_data)[1] != 0
-        lag_data = filter(row -> row.participant == participant && row.session == session, lag_data)
-        lag_data = select(lag_data, [:stream, :lag_duration, :lag_timestamp, :first_timestamp_xdf])
-    end
-    if size(lag_data)[1] == 0
-        println(out,"No lag data for $participant for this session: $session, times are not aligned ")
-        return DataFrame()
-    end
-
-    lag = lag_data.lag_timestamp[1]
-    if  lag < 0
-        println(out,"check timestamps for $participant for this session: $session, negative lag ")
-        return DataFrame()
-    elseif lag > 500
-        println(out,"check timestamps for $participant for this session: $session, huge lag ")        
-        return DataFrame()
-    end
-    lag_zero = lag_data.first_timestamp_xdf[1]/1000
-    # now process fixations
-    try
-        readdir(participant_folder)
-    catch e
-        println(out,"No data for $participant for this session: $session")
-        return DataFrame()
-    end
-
-        subfolders = [f for f in readdir(participant_folder) if isdir(joinpath(participant_folder, f))]
-        if subfolders[1]=="surfaces"
-            surface_folder = joinpath(participant_folder, subfolders[1])
-        else
-            surface_folder = joinpath(participant_folder, subfolders[1],"surfaces")
+function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder; out=stdout)  # TODO update logging in here
+    logger = SimpleLogger(out, Logging.Info)
+    fixations_positions = DataFrame()
+    with_logger(logger) do
+        participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
+        lag_data = DataFrame()
+        lag_datafile = joinpath(root_folder,"lag_data.csv")
+        try 
+            CSV.read(lag_datafile, DataFrame)
+        catch e
+            @error "Lag data file missing or empty" lag_datafile
+        end 
+        lag_data = CSV.read(joinpath(root_folder,"lag_data.csv"), DataFrame) |>
+                #insert zeroes before single digits, so it fits the number of the set passed to the function         
+                df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) |>
+                df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session) 
+        # Use the map function to apply the dictionary to the session column
+        lag_data.session = map(x -> get(surface_sessions, x, x), lag_data.session)
+        transform!(lag_data, :stream => (x -> ifelse.(x .== "ET_idslexp", "01", ifelse.(x .== "ET_DESKTOP-5B8EI51", "02", x))) => :participant)
+        lag_data.participant = [string(row.set, "_", row.participant) for row in eachrow(lag_data)]
+        
+        if size(lag_data)[1] != 0
+            lag_data = filter(row -> row.participant == participant && row.session == session, lag_data)
+            lag_data = select(lag_data, [:stream, :lag_duration, :lag_timestamp, :first_timestamp_xdf])
         end
-    
-        surface_files = [file for file in readdir(surface_folder)if occursin(data_type, file)]
-        if size(surface_files)[1]==0
-            println(out,"No data for $participant for this session: $session")
+        if size(lag_data)[1] == 0
+            @error "No lag data for participant <$participant> for session <$session>; times are not aligned"
             return DataFrame()
         end
-        fixations_positions = CSV.read(joinpath(surface_folder, "$data_type"*"_face.csv"), DataFrame)
-        filter!(row -> row.on_surf == true, fixations_positions)
-        if data_type == "fixations_on_surface"
-            time_zero = fixations_positions.start_timestamp[1]
-            fixations_positions.time_sec = fixations_positions.start_timestamp .- time_zero
-            fixations_positions.time_corrected =  fixations_positions.start_timestamp  .- lag_zero
-        else
-            time_zero = fixations_positions.gaze_timestamp[1]
-            fixations_positions.time_sec = fixations_positions.gaze_timestamp .- time_zero
-            fixations_positions.time_corrected =  fixations_positions.gaze_timestamp .- lag_zero
-        end
-        fixations_positions.surface = fill("face", nrow(fixations_positions))
 
-        for file in surface_files
-                    surface = split(file, "_")[end] |> x -> split(x, ".")[1]
-                    surface_df =  CSV.read(joinpath(surface_folder, file), DataFrame)
-                    if data_type == "fixations_on_surface"
-                        time_zero = surface_df.start_timestamp[1]
-                        surface_df.time_sec = surface_df.start_timestamp .- time_zero
-                        surface_df.time_corrected =  surface_df.start_timestamp .- lag_zero
-                    else
-                        time_zero = surface_df.gaze_timestamp[1]
-                        surface_df.time_sec = surface_df.gaze_timestamp .- time_zero
-                        surface_df.time_corrected =  surface_df.gaze_timestamp .- lag_zero
-                    end
-                    filter!(row -> row.on_surf == true, surface_df) 
-                    surface_df.time_sec =  surface_df.time_sec .- lag
-                    surface_df.surface = fill(surface, nrow(surface_df))
-                    fixations_positions = append!(fixations_positions, surface_df)
+        lag = lag_data.lag_timestamp[1]
+        if  lag < 0
+            @error "Check timestamps for participant and session, negative lag found!" lag participant session
+            return DataFrame()
+        elseif lag > 500
+            @warn "Check timestamps for participant and session, unexpectedly large lag found!" lag participant session     
+            return DataFrame()
         end
-        #names(fixations_positions)
-        normal_sessions = Dict("000" => "01", "001" => "02", "002" => "03", "003" => "04")
-        normal_session= normal_sessions[session]
-        fixations_positions.participant = fill(participant, nrow(fixations_positions))
-        fixations_positions.session = fill(normal_session, nrow(fixations_positions))
-        fixations_positions.lag = fill(lag, nrow(fixations_positions))
-        n_of_fixations = size(fixations_positions)[1]
-        println(out, "Data for $participant for this session: $n_of_fixations fixations ($data_type)")
+        lag_zero = lag_data.first_timestamp_xdf[1]/1000
+        # now process fixations
+        try
+            readdir(participant_folder)
+        catch e
+            @error "No data for this participant found in this session" participant session
+            return DataFrame()
+        end
+
+            subfolders = [f for f in readdir(participant_folder) if isdir(joinpath(participant_folder, f))]
+            if subfolders[1] == "surfaces"
+                surface_folder = joinpath(participant_folder, subfolders[1])
+            else
+                surface_folder = joinpath(participant_folder, subfolders[1], "surfaces")
+            end
+        
+            surface_files = [file for file in readdir(surface_folder)if occursin(data_type, file)]
+            if size(surface_files)[1] == 0
+                @error "No data for this participant found in this session" participant session
+                return DataFrame()
+            end
+            fixations_positions = CSV.read(joinpath(surface_folder, "$data_type"*"_face.csv"), DataFrame)
+            filter!(row -> row.on_surf == true, fixations_positions)
+            if data_type == "fixations_on_surface"
+                time_zero = fixations_positions.start_timestamp[1]
+                fixations_positions.time_sec = fixations_positions.start_timestamp .- time_zero
+                fixations_positions.time_corrected =  fixations_positions.start_timestamp  .- lag_zero
+            else
+                time_zero = fixations_positions.gaze_timestamp[1]
+                fixations_positions.time_sec = fixations_positions.gaze_timestamp .- time_zero
+                fixations_positions.time_corrected =  fixations_positions.gaze_timestamp .- lag_zero
+            end
+            fixations_positions.surface = fill("face", nrow(fixations_positions))
+
+            for file in surface_files
+                surface = split(file, "_")[end] |> x -> split(x, ".")[1]
+                surface_df =  CSV.read(joinpath(surface_folder, file), DataFrame)
+                if data_type == "fixations_on_surface"
+                    time_zero = surface_df.start_timestamp[1]
+                    surface_df.time_sec = surface_df.start_timestamp .- time_zero
+                    surface_df.time_corrected =  surface_df.start_timestamp .- lag_zero
+                else
+                    time_zero = surface_df.gaze_timestamp[1]
+                    surface_df.time_sec = surface_df.gaze_timestamp .- time_zero
+                    surface_df.time_corrected =  surface_df.gaze_timestamp .- lag_zero
+                end
+                filter!(row -> row.on_surf == true, surface_df) 
+                surface_df.time_sec =  surface_df.time_sec .- lag
+                surface_df.surface = fill(surface, nrow(surface_df))
+                fixations_positions = append!(fixations_positions, surface_df)
+            end
+            normal_sessions = Dict("000" => "01", "001" => "02", "002" => "03", "003" => "04")
+            normal_session= normal_sessions[session]
+            fixations_positions.participant = fill(participant, nrow(fixations_positions))
+            fixations_positions.session = fill(normal_session, nrow(fixations_positions))
+            fixations_positions.lag = fill(lag, nrow(fixations_positions))
+            n_fixations = size(fixations_positions)[1]
+            @info "Participant surface fixation data:" participant n_fixations data_type
+        end
         return fixations_positions
 end
 
@@ -324,48 +327,52 @@ end
 
 #functions that add times of words
 
-function get_and_reannotate_words(set, session, root_folder=root_folder; out=stdout)    
-    conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
-    condition = conditions[session]
-    words_folder = joinpath( root_folder,"AUDIO", set,"Wortlisten")
-    words = try
-        CSV.read(joinpath(words_folder, "words_$set"*"_$condition.csv"), DataFrame) 
-    catch e
-        println(out,"No audio file: set: $set session: $session: ")
-        return DataFrame()
-    end
-    target_words = filter(row -> !ismissing(row.pos) , words)|>
-    df -> rename!(df, names(df) .=> ["line","tmin","text","tmax","condition", "face", "set", "pattern","pos"]) |>
-    df -> filter!(row -> row.pos == "N", df)  |>
-    df -> transform!(df, :text => ByRow(lowercase) => :text) |>
-    df -> transform!(df, :tmin => ByRow(x -> round(x/10000000, digits=7)) => :time)|>
-    df -> select!(df, :text, :time, :face)
+function get_and_reannotate_words(set, session, root_folder=root_folder; out=stdout)
+    logger = SimpleLogger(out, Logging.Info)
+    target_words = DataFrame()
+    with_logger(logger) do
+        conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
+        condition = conditions[session]
+        words_folder = joinpath(root_folder, "AUDIO", set, "Wortlisten")
+        audio_file = joinpath(words_folder, "words_$set"*"_$condition.csv")
+        words = try
+            CSV.read(audio_file, DataFrame) 
+        catch e
+            @error "Expected audio file missing:" audio_file set session
+            return DataFrame()
+        end
+        target_words = filter(row -> !ismissing(row.pos) , words)|>
+        df -> rename!(df, names(df) .=> ["line","tmin","text","tmax","condition", "face", "set", "pattern","pos"]) |>
+        df -> filter!(row -> row.pos == "N", df)  |>
+        df -> transform!(df, :text => ByRow(lowercase) => :text) |>
+        df -> transform!(df, :tmin => ByRow(x -> round(x/10000000, digits=7)) => :time)|>
+        df -> select!(df, :text, :time, :face)
+        object_names_file = joinpath(root_folder, "AUDIO", "Objektbezeichnungen.csv")
+        try                 
+            words_to_tokens = CSV.read(object_names_file, DataFrame, types=Dict(:subject=>String, :condition=>String)) 
+            target_tokens = words_to_tokens |> 
+                            df -> rename(df, names(df) .=> strip.(string.(names(df)))) |>
+                            row -> filter( row -> row.subject == set && row.condition==condition, row) |>
+                            df -> select(df, :name, :token) |>
+                            df -> transform(df, :token => ByRow(lowercase) => :token) |>
+                            df -> transform(df, :name => ByRow(lowercase) => :name) |>
+                            df -> transform(df, :name => ByRow(x -> replace(x, r" " => "")) => :name) |>
+                            df -> transform(df, :token => ByRow(x -> replace(x, r"dose" => "creme")) => :token) 
 
-    try                 
-        words_to_tokens = CSV.read(joinpath(root_folder, "AUDIO", "Objektbezeichnungen.csv"), DataFrame, types=Dict(:subject=>String, :condition=>String)) 
-        target_tokens = words_to_tokens |> 
-                        df -> rename(df, names(df) .=> strip.(string.(names(df)))) |>
-                        row -> filter( row -> row.subject == set && row.condition==condition, row) |>
-                        df -> select(df, :name, :token) |>
-                        df -> transform(df, :token => ByRow(lowercase) => :token) |>
-                        df -> transform(df, :name => ByRow(lowercase) => :name) |>
-                        df -> transform(df, :name => ByRow(x -> replace(x, r" " => "")) => :name) |>
-                        df -> transform(df, :token => ByRow(x -> replace(x, r"dose" => "creme")) => :token) 
+            target_words = leftjoin(target_words, target_tokens , on = :text => :name) |>
+            df -> transform!(df, :token => ByRow(row -> ismissing(row) ? missing : row) => :text) |>
+            df -> select!(df, :text, :time, :face) |>
+            df -> filter!(row -> !ismissing(row.text), df)
 
-        target_words = leftjoin(target_words, target_tokens , on = :text => :name) |>
-        df -> transform!(df, :token => ByRow(row -> ismissing(row) ? missing : row) => :text) |>
-        df -> select!(df, :text, :time, :face) |>
-        df -> filter!(row -> !ismissing(row.text), df)
+        catch e
+            @warn "(!) No object names file found! Untokenized transcription will be used, causing significant data loss!" object_names_file
+        end
 
-    catch e
-        println(out,e)
-        println(out, "NB!!! No object names file, the actual words for the objects will be used, a lot of data for the objects will be missing")
-    end
-
-    #delete consequent movements of the same object
-    for i in nrow(target_words):-1:2
-        if target_words.text[i] == target_words.text[i-1]
-            delete!(target_words,i)
+        # Delete consecutive movements of the same object
+        for i in nrow(target_words):-1:2
+            if target_words.text[i] == target_words.text[i-1]
+                delete!(target_words,i)
+            end
         end
     end
     return target_words
@@ -373,118 +380,122 @@ end
 
 
 function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_end; out=stdout)
-    @debug "Running get_set_fixations_for_noun for set $set and data type $data_type"
-    if data_type == "fixations_on_surface"
-        fixations_for_set = DataFrame(
-            world_timestamp = Float64[],
-            world_index = Int[],
-            fixation_id = Int[],
-            start_timestamp = Float64[],
-            duration = Float64[],
-            dispersion = Float64[],
-            norm_pos_x = Float64[],
-            norm_pos_y = Float64[],
-            x_scaled = Float64[],
-            y_scaled = Float64[],
-            on_surf = Bool[],
-            time_sec = Float64[],
-            surface = String[],
-            participant = String[],
-            session = String[],
-            noun = String[],
-            face = String[],
-            frame_number = Int[],
-            set = String[],
-            time_corrected = Float64[],
-            lag = Float64[],
-            noun_time = Float64[]
-        )
-    elseif data_type == "gaze_positions_on_surface"
-        fixations_for_set = DataFrame(
-            world_timestamp = Float64[],
-            world_index = Int[],
-            gaze_timestamp = Float64[],
-            x_norm = Float64[],
-            y_norm = Float64[],
-            x_scaled = Float64[],
-            y_scaled = Float64[],
-            on_surf = Bool[],
-            confidence = Float64[],
-            time_sec = Float64[],
-            surface = String[],
-            participant = String[],
-            session = String[],
-            noun = String[],
-            face = String[],
-            frame_number = Int[],
-            set = String[],
-            time_corrected = Float64[],
-            lag = Float64[],
-            noun_time = Float64[]
-        )
-    else
-        @error "Unrecognized data type, use 'fixations_on_surface' or 'gaze_positions_on_surface'"
-        return DataFrame()
-    end
-    words_sessions = ["01", "02", "03", "04"]
-    surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
-
-    nouns_for_set = 0
-    for session in words_sessions
-        nouns = get_and_reannotate_words(set, session; out=out)
-        if size(nouns)[1]==0
-            @error "No words data for session <$session>; skipping."
-            continue
-        end
-        
-        surface_session = surface_sessions[session]
+    logger = SimpleLogger(out, Logging.Info)
+    fixations_for_set = DataFrame()
+    with_logger(logger) do
+        @debug "Running get_set_fixations_for_noun for set $set and data type $data_type"
         if data_type == "fixations_on_surface"
-            matcher_fixations = read_surfaces("$set"*"_01", surface_session, "fixations_on_surface"; out=out)
-            director_fixations = read_surfaces("$set"*"_02", surface_session, "fixations_on_surface"; out=out)
+            fixations_for_set = DataFrame(
+                world_timestamp = Float64[],
+                world_index = Int[],
+                fixation_id = Int[],
+                start_timestamp = Float64[],
+                duration = Float64[],
+                dispersion = Float64[],
+                norm_pos_x = Float64[],
+                norm_pos_y = Float64[],
+                x_scaled = Float64[],
+                y_scaled = Float64[],
+                on_surf = Bool[],
+                time_sec = Float64[],
+                surface = String[],
+                participant = String[],
+                session = String[],
+                noun = String[],
+                face = String[],
+                frame_number = Int[],
+                set = String[],
+                time_corrected = Float64[],
+                lag = Float64[],
+                noun_time = Float64[]
+            )
         elseif data_type == "gaze_positions_on_surface"
-            matcher_fixations = read_surfaces("$set"*"_01", surface_session, "gaze_positions_on_surface"; out=out)
-            director_fixations = read_surfaces("$set"*"_02", surface_session, "gaze_positions_on_surface"; out=out)
-        end
-        
-        if size(matcher_fixations)[1] == 0
-            @error "No matcher data for session <$session>; skipping."
-            continue
-        elseif size(director_fixations)[1] == 0
-            @warn "No director data for session <$session>; data from matcher only will be used."
-            set_fixations = matcher_fixations
+            fixations_for_set = DataFrame(
+                world_timestamp = Float64[],
+                world_index = Int[],
+                gaze_timestamp = Float64[],
+                x_norm = Float64[],
+                y_norm = Float64[],
+                x_scaled = Float64[],
+                y_scaled = Float64[],
+                on_surf = Bool[],
+                confidence = Float64[],
+                time_sec = Float64[],
+                surface = String[],
+                participant = String[],
+                session = String[],
+                noun = String[],
+                face = String[],
+                frame_number = Int[],
+                set = String[],
+                time_corrected = Float64[],
+                lag = Float64[],
+                noun_time = Float64[]
+            )
         else
-            set_fixations = vcat(matcher_fixations, director_fixations)
+            @error "Unrecognized data type, use 'fixations_on_surface' or 'gaze_positions_on_surface'" data_type
+            return DataFrame()
         end
-        #CSV.write("$root_folder/set_fixations.csv", set_fixations)
-        # find all fixations that are -1 sec from the noun and up to +2 sec from the noun
-        nouns_for_set += size(nouns)[1]
-        #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
-        nouns.time_windows = [(noun.time + epoch_start, noun.time - 0.2, noun.time + epoch_end) for noun in eachrow(nouns)]
-        @debug "Time windows:" size=size(nouns.time_windows) set=set session=session
-        #set fixations for nouns as an empty dataset of the same structure
-        fixations_for_nouns = fixations_for_set
-        for noun in eachrow(nouns)
-            start_time, frame_time, end_time = noun.time_windows
-            fixations_in_window = filter(row -> row.time_corrected >= frame_time && row.time_corrected <= end_time, set_fixations)
-            if size(fixations_in_window)[1]==0
-                @warn "No fixations in the period from frame [$frame_time] to end of window [$end_time]; skipping this noun."
-                nouns_for_set -= 1
+        words_sessions = ["01", "02", "03", "04"]
+        surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
+
+        nouns_for_set = 0
+        for session in words_sessions
+            nouns = get_and_reannotate_words(set, session; out=out)
+            if size(nouns)[1]==0
+                @error "No words data for session <$session>; skipping."
                 continue
             end
-            frame_number = minimum(fixations_in_window[!, :world_index])
-            fixations_in_window = filter(row -> row.time_corrected >= start_time && row.time_corrected <= end_time, set_fixations)            
-            #noun onset and face visibility and the frame number for the minimum time of the tuple
-            fixations_in_window.noun = fill(noun.text, nrow(fixations_in_window))
-            fixations_in_window.face = fill(noun.face, nrow(fixations_in_window))
-            fixations_in_window.set = fill(set, nrow(fixations_in_window))
-            fixations_in_window.noun_time = fill(noun.time, nrow(fixations_in_window))
-            fixations_in_window.frame_number = fill(frame_number,nrow(fixations_in_window))
-            fixations_for_nouns = vcat(fixations_for_nouns, fixations_in_window)
+            
+            surface_session = surface_sessions[session]
+            if data_type == "fixations_on_surface"
+                matcher_fixations = read_surfaces("$set"*"_01", surface_session, "fixations_on_surface"; out=out)
+                director_fixations = read_surfaces("$set"*"_02", surface_session, "fixations_on_surface"; out=out)
+            elseif data_type == "gaze_positions_on_surface"
+                matcher_fixations = read_surfaces("$set"*"_01", surface_session, "gaze_positions_on_surface"; out=out)
+                director_fixations = read_surfaces("$set"*"_02", surface_session, "gaze_positions_on_surface"; out=out)
+            end
+            
+            if size(matcher_fixations)[1] == 0
+                @error "No matcher data for session <$session>; skipping."
+                continue
+            elseif size(director_fixations)[1] == 0
+                @warn "No director data for session <$session>; data from matcher only will be used."
+                set_fixations = matcher_fixations
+            else
+                set_fixations = vcat(matcher_fixations, director_fixations)
+            end
+            #CSV.write("$root_folder/set_fixations.csv", set_fixations)
+            # find all fixations that are -1 sec from the noun and up to +2 sec from the noun
+            nouns_for_set += size(nouns)[1]
+            #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
+            nouns.time_windows = [(noun.time + epoch_start, noun.time - 0.2, noun.time + epoch_end) for noun in eachrow(nouns)]
+            @debug "Time windows:" size=size(nouns.time_windows) set=set session=session
+            #set fixations for nouns as an empty dataset of the same structure
+            fixations_for_nouns = fixations_for_set
+            for noun in eachrow(nouns)
+                start_time, frame_time, end_time = noun.time_windows
+                fixations_in_window = filter(row -> row.time_corrected >= frame_time && row.time_corrected <= end_time, set_fixations)
+                if size(fixations_in_window)[1]==0
+                    @warn "No fixations in the period from frame [$frame_time] to end of window [$end_time]; skipping this noun."
+                    nouns_for_set -= 1
+                    continue
+                end
+                frame_number = minimum(fixations_in_window[!, :world_index])
+                fixations_in_window = filter(row -> row.time_corrected >= start_time && row.time_corrected <= end_time, set_fixations)            
+                #noun onset and face visibility and the frame number for the minimum time of the tuple
+                fixations_in_window.noun = fill(noun.text, nrow(fixations_in_window))
+                fixations_in_window.face = fill(noun.face, nrow(fixations_in_window))
+                fixations_in_window.set = fill(set, nrow(fixations_in_window))
+                fixations_in_window.noun_time = fill(noun.time, nrow(fixations_in_window))
+                fixations_in_window.frame_number = fill(frame_number,nrow(fixations_in_window))
+                fixations_for_nouns = vcat(fixations_for_nouns, fixations_in_window)
+            end
+            fixations_for_set = vcat(fixations_for_set, fixations_for_nouns)
+            @info "Number of fixations in session <$session>:" n_fixations=size(fixations_for_set)
         end
-        fixations_for_set = vcat(fixations_for_set, fixations_for_nouns)
-        @info "Number of fixations in session <$session>:" n_fixations=size(fixations_for_set)
+        @info "Numbers of nouns with associated fixations in set <$set>:" nouns_for_set
     end
-    @info "Numbers of nouns with associated fixations in set <$set>:" nouns_for_set
     return  fixations_for_set
 end
 
