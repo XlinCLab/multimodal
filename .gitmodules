@@ -2,3 +2,7 @@
 	path = multimodal-yolo
 	url = https://github.com/XlinCLab/multimodal-yolo.git
 	branch = update2025
+
+[submodule "yolov7"]
+	path = yolov7
+	url = https://github.com/WongKinYiu/yolov7.git

@@ -28,6 +28,8 @@ In the last month the priority was to get everything to work, so I apologize for
 ## Submodules
 This project makes use of `git` submodules. To sync and pull all updates from all submodules, use the following command
 ```
+git submodule update --init --recursive
+
 git submodule sync --recursive
 ``` 
 
