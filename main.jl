@@ -1,9 +1,15 @@
+root_folder = ""
+log_dir = joinpath(root_folder, "logs")
+mkpath(log_dir)
+@info "Data root: $root_folder"
+@info "Logs: $log_dir"
 
-# this is the main script, that runs the pipeline
+# Default output if no output log file specified
+out = stdout
+
+@info "Loading environment..."
 include("functions.jl")
-#indicate the defalut output for the functions, we change it for the log file for some fucnctions
-out=stdout
-root_folder = "/Users/varya/Desktop/Julia/DGAME data"
+
 #these are paths to object coordinates and images, we will only get them in part two
 labels_folder = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/labels"
 yolo_output_path = "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output"
@@ -13,47 +19,61 @@ sets = ["04", "05", "06", "07", "08", "10", "11", "12"]
 surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
 
 #Read all the Lab Streaming Layer timestamps from .xdf and .json files and aggregate them in one table
-get_all_timestamps_xdf(sets, root_folder)
-get_all_timestamps_json(sets, root_folder)
-get_lag_ET(sets, root_folder)
+log_file = joinpath(root_folder, "logs", "timestamp_extraction_from_xdf.log")
+@info "Loading timestamps from .xdf files...\nLog file: $log_file"
+log_file = open(log_file, "w")
+get_all_timestamps_xdf(sets, root_folder; out=log_file)
+close(log_file)
+
+log_file = joinpath(root_folder, "logs", "timestamp_extraction_from_json.log")
+@info "Loading timestamps from .json files...\nLog file: $log_file"
+log_file = open(log_file, "w")
+get_all_timestamps_json(sets, root_folder; out=log_file)
+close(log_file)
+
+log_file = joinpath(root_folder, "logs", "compute_eyetracker_lag.log")
+@info "Computing eye-tracker lag...\nLog file: $log_file"
+log_file = open(log_file, "w")
+get_lag_ET(root_folder; out=log_file)
+close(log_file)
+
 #Get all the frames of interest (200 milliseconds primary to the noun onset
 #check if all the april tags are recognized, if not
-
-# Here we define the epoch size for the fixation data, in seconds
-# the epoch_start is the time before the noun onset, the epoch_end is the time after the noun onset
+# Define epoch size for the fixation data, in seconds
+# epoch_start is the time before the noun onset, epoch_end is the time after the noun onset
 epoch_start, epoch_end = -1,1
-
-# Open a log file for writing
-log_file = open("combine_fixations_by_nouns.log", "w")
-# pass the logfile into a function, it has a named parameter "out" which is by default stdout
-
+log_file = joinpath(root_folder, "logs", "combine_fixations_by_nouns.log")
+@info "Starting gaze and fixation extraction per frame...\nLog file: $log_file" epoch_start epoch_end
+log_file = open(log_file, "w")
 all_trial_surfaces_gazes, all_trial_surfaces_fixations = get_all_gazes_and_fixations_by_frame(sets, epoch_start, epoch_end; out=log_file)
 # Yolo may change image size deleting the black borders, so we need to check the image sizes
 close(log_file)
 
-
-# get frames of interest (200 ms before the noun onset)
+# Get frames of interest (200 ms before noun onset)
+@info "Extracting frames of interest (200 ms before noun onset)..."
 frames = get_frames_from_fixations(all_trial_surfaces_fixations)
-#correct frame numbers according to april tags recognized
-#get a frame with maximum april tags from 1 sec to the noun onset period
 
-log_file = open("correcting frame numbers.log", "w")
+# Correct frame numbers according to april tags recognized
+# Select the frame with the maximum number of april tags during the period from 1 sec to the noun onset
+log_file = joinpath(root_folder, "logs", "correcting_frame_numbers.log")
+@info "Selecting optimal frames...\nLog file: $log_file"
+log_file = open(log_file, "w")
 frames_corrected = check_april_tags_for_frames(frames; out=log_file)
 close(log_file)
 #read from file if needed, CSV package cannot handle surface transformation matrices, so use TextParse
 #frames_corrected = CSV.read("$root_folder/frame_numbers_corrected_with_tokens.csv", DataFrame)
 
-# get all transformation matrices for all frames in one aggregated table
-#it will be written to a cvs file "all_surface_matrices.csv"
+# Get all transformation matrices for all frames in one aggregated table
+# it will be written to a CSV file "all_surface_matrices.csv"
 surface_positions = get_all_surface_matrices_for_frames(frames_corrected)
 #in case, you'd like to download it from file
-if isempty(surface_positions)
-    data, surf_names = TextParse.csvread(joinpath(root_folder,"all_surface_matrices.csv"))
-    surface_positions =  DataFrame()
-    for (i, surf_name) in enumerate(surf_names)
-        surface_positions[!, Symbol(surf_name)] = data[i]
-    end
-end
+# if isempty(surface_positions)
+#     data, surf_names = TextParse.csvread(joinpath(root_folder,"all_surface_matrices.csv"))
+#     surface_positions =  DataFrame()
+#     for (i, surf_name) in enumerate(surf_names)
+#         surface_positions[!, Symbol(surf_name)] = data[i]
+#     end
+# end
 
 
 #Get all coordinates for all recognized objects for all frames and write them to one dataset

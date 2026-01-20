@@ -1,29 +1,2 @@
-*.csv
-*info.txt
-*.log
-*.out
-*.pdf
-*.p*
-*.r*
-*.mp4*
-*.meta
-*.js*
-*.jp*
-*.x*
-*.n*
-*.i*
-*.f*
-*.Text*
-*.token
-*_cache*
-*surface_definitions*
-*.z*
 .DS*
-*.w*
-*.o*
-*.a*
-*.d*
 .vscode/
-DGAME data/
-Roberts ET data/
-

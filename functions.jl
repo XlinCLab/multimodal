@@ -27,6 +27,7 @@ using LinearAlgebra
 using TextParse
 using CairoMakie
 using Images
+using Logging
 
 
 # functions that create aggregated tables with timestamps, lags and coordinates
@@ -34,42 +35,40 @@ function get_json_timestamp(participant, session, root_folder=root_folder)
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
     surface_session = surface_sessions[session]
     session_file = joinpath(root_folder, "DGAME3_$participant", "$surface_session", "info.player.json")
-    println(out,session_file)
+    @info "Parsing timestamps from $session_file"
     try
         JSON.parsefile(session_file)
     catch e
-        println(out,"No json file for $participant for this session: $session")
+        @error "No json file for participant <$participant> for session <$session>"
         return (0,0)
     end
-    info= JSON.parsefile(session_file)
+    info = JSON.parsefile(session_file)
     start_time_synced_s = info["start_time_synced_s"]
     duration = info["duration_s"]
     return (start_time_synced_s, duration)
 end
 
 function read_timestamps_from_xdf(setting::String, root_folder=root_folder)
-        root_folder=joinpath(root_folder,"xdf")
-
-    sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])
+    root_folder=joinpath(root_folder,"xdf")
+    sessions = Dict([("11","01"),("12","02"), ("21", "03"), ("22" ,"04")])  # condition to session mapping
     director_files = readdir(joinpath(root_folder,  setting, "Director"))
-    #setting = "04" #for testing
     timestamps = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[])
-    #file = director_files[1] #for testing
     for file in director_files
         try
             sessions[file[end-5:end-4]]
         catch e
-            println(out,"No session for $file or file is irrelavant")
+            @warn "No session found for $file or file is irrelevant"
             continue
         end
         session = sessions[file[end-5:end-4]]
+        @info "Extracting timestamps from xdf file: $file"
         exp_set = read_xdf(joinpath(joinpath(root_folder, setting, "Director"),file))
         # Extract the timestamps from the XDF file
         # the numbers of streams are random in terms of what is the contents
-        #so we have to check the contents of the streams by name
+        # so we have to check the contents of the streams by name
         for i in eachindex(exp_set)
-            println(out,exp_set[i]["name"])
-            name=exp_set[i]["name"]
+            @debug "" name=exp_set[i]["name"]
+            name = exp_set[i]["name"]
             if name == "audio"
                 audio_created = round(parse(Float64,xml_dict(exp_set[i]["header"])["info"]["created_at"]), digits=3)
                 audio_first_timestamp = round(parse(Float64, xml_dict(exp_set[i]["footer"])["info"]["first_timestamp"]), digits=3)
@@ -89,70 +88,86 @@ function read_timestamps_from_xdf(setting::String, root_folder=root_folder)
     return timestamps
 end
 
-function get_all_timestamps_xdf(sets, root_folder=root_folder)
+function get_all_timestamps_xdf(sets, root_folder=root_folder; out=stdout)
+    logger = SimpleLogger(out, Logging.Info)
     timestamps_xdf = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[], :diff => Float64[], :duration => Float64[])
-    for set in sets
-        timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set))
+    with_logger(logger) do
+        for set in sets
+            @info "Extracting timestamps from xdf files in set <$set>"
+            timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set))
+        end
+        # Define a function that converts a float to an integer
+        float_to_int(x::Float64) = trunc(Int, x)
+        transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=> (x -> x .* 1000) .=> names(timestamps_xdf, Float64))
+        # Apply this function to each float column in the DataFrame
+        transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_xdf, Float64))
+        outcsv = joinpath(root_folder, "timestamps_xdf.csv")
+        CSV.write(outcsv, timestamps_xdf)
+        @info "Wrote timestamps from xdf files to $outcsv"
     end
-    # Define a function that converts a float to an integer
-    float_to_int(x::Float64) = trunc(Int, x)
-    transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=> (x -> x .* 1000) .=> names(timestamps_xdf, Float64))
-    # Apply this function to each float column in the DataFrame
-    transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_xdf, Float64))
-    #lot's of data missing for the director
-    CSV.write(joinpath(root_folder, "timestamps_xdf.csv"), timestamps_xdf)
     return timestamps_xdf
 end
 
-function get_all_timestamps_json(sets, root_folder=root_folder)
-    #now get all timestamps from .json files
+function get_all_timestamps_json(sets, root_folder=root_folder; out=stdout)
+    # extract all timestamps from .json files
+    logger = SimpleLogger(out, Logging.Info)
     timestamps_json = DataFrame(:set => String[], :session => String[], :stream => String[], :first_timestamp => Float64[],  :duration => Float64[])
-    for set in sets
-        director = set*"_02"
-        matcher = set*"_01"
-        for session in ["01", "02", "03", "04"]
-            start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
-            if start_time_synced_s_dir == 0
-                println(out,"No json file for $set for this session: $session")
-                continue
+    with_logger(logger) do
+        for set in sets
+            @info "Extracting timestamps from jsons for set <$set>"
+            director = set * "_02"
+            matcher = set * "_01"
+            for session in ["01", "02", "03", "04"]
+                start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
+                if start_time_synced_s_dir == 0
+                    @error "ERROR: No director json file for set <$set> for session <$session>"
+                    continue
+                end
+                push!(timestamps_json, (set, session,"ET_DESKTOP-5B8EI51", start_time_synced_s_dir, duration_dir))
+                start_time_synced_s_matcher = get_json_timestamp(matcher, session)
+                if start_time_synced_s_matcher == Dict()
+                    @error "No matcher json file for <$set> for session <$session>"
+                    continue
+                else
+                    start_time_synced_s_matcher, duration_matcher = get_json_timestamp(matcher, session)
+                end
+                push!(timestamps_json, (set, session,"ET_idslexp", start_time_synced_s_matcher, duration_matcher))
             end
-            push!(timestamps_json, (set, session,"ET_DESKTOP-5B8EI51", start_time_synced_s_dir, duration_dir))
-            start_time_synced_s_matcher = get_json_timestamp(matcher, session)
-            if start_time_synced_s_matcher == Dict()
-                println(out,"No json file for $set for this session: $session")
-                continue
-            else
-                start_time_synced_s_matcher, duration_matcher = get_json_timestamp(matcher, session)
-            end
-            push!(timestamps_json, (set, session,"ET_idslexp", start_time_synced_s_matcher, duration_matcher))
         end
+        float_to_int(x::Float64) = trunc(Int, x)
+        transform!( timestamps_json, names(timestamps_json, Float64) .=> (x -> x .* 1000) .=> names(timestamps_json, Float64))
+        # Apply this function to each float column in the DataFrame
+        transform!( timestamps_json, names( timestamps_json, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_json, Float64))
+        outcsv = joinpath(root_folder, "timestamps_ET.csv")
+        CSV.write(outcsv, timestamps_json)
+        @info "Wrote timestamps from json files to $outcsv"
     end
-    float_to_int(x::Float64) = trunc(Int, x)
-    transform!( timestamps_json, names(timestamps_json, Float64) .=> (x -> x .* 1000) .=> names(timestamps_json, Float64))
-    # Apply this function to each float column in the DataFrame
-    transform!( timestamps_json, names( timestamps_json, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_json, Float64))
-    CSV.write(joinpath(root_folder, "timestamps_ET.csv"), timestamps_json)
     return timestamps_json
 end
 
-function get_lag_ET(sets,reprocess="no",root_folder=root_folder)
-    #call the functions to refresf the data
-    if reprocess == "yes"
-        get_all_timestamps_xdf(sets)
-        get_all_timestamps_json(sets)
-    end
-        ET_xdf = CSV.read(joinpath(root_folder, "timestamps_xdf.csv"), DataFrame)|>
+function get_lag_ET(root_folder=root_folder; out=stdout)
+    logger = SimpleLogger(out, Logging.Info)
+    lag = DataFrame()
+    with_logger(logger) do
+        infile_xdf = joinpath(root_folder, "timestamps_xdf.csv")
+        @info "Reading xdf timestamps from:" infile_xdf
+        ET_xdf = CSV.read(infile_xdf, DataFrame)|>
         df -> rename!(df, :first_timestamp => :first_timestamp_xdf)|>
         df -> rename!(df, :duration => :duration_xdf)|>
         df -> filter!(row -> row.stream != "audio", df)
-
-        json = CSV.read(joinpath(root_folder, "timestamps_ET.csv"), DataFrame)
+        
+        infile_et = joinpath(root_folder, "timestamps_ET.csv")
+        @info "Reading eye-tracker timestamps from:" infile_et
+        json = CSV.read(infile_et, DataFrame)
 
         lag = innerjoin(ET_xdf, json, on = [:set, :session, :stream]) 
         transform!(lag, [:first_timestamp_xdf, :first_timestamp] => ByRow((x,y) -> (x - y)/1000) => :lag_timestamp)
         transform!(lag, [:duration, :duration_xdf] => ByRow((x,y) -> (x - y)/1000) => :lag_duration)
-        
-    CSV.write("$root_folder/lag_data.csv", lag)   
+
+        outcsv = joinpath(root_folder, "lag_data.csv")
+        CSV.write(outcsv, lag)
+        @info "Wrote eyetracker lag data to $outcsv"
+    end
     return lag 
 end
 
@@ -299,10 +314,7 @@ function get_frames_from_fixations(all_fixations)
     frame_numbers = filter(row -> endswith(row.participant, "_01"), frame_numbers)
     frame_numbers.time_sec = [frame.frame_number/30 for frame in eachrow(frame_numbers)]
     frame_numbers.video_path .= ""
-
-    #frame_numbers = CSV.read("/Users/varya/Desktop/Julia/frame_numbers.csv", DataFrame)
     for row in eachrow(frame_numbers)
-        #row=eachrow(frame_numbers)[1]
         session = lpad(row.session,2,"0")
         session = surface_sessions[session]
         row.video_path = joinpath(root_folder, "DGAME3_"*row.participant, session , "world.mp4")
@@ -361,8 +373,7 @@ end
 
 
 function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_end; out=stdout)
-    #set="08" for testing
-    println(out,"Running get_set_fixations_for_noun for set $set and data type $data_type")
+    @debug "Running get_set_fixations_for_noun for set $set and data type $data_type"
     if data_type == "fixations_on_surface"
         fixations_for_set = DataFrame(
             world_timestamp = Float64[],
@@ -412,7 +423,7 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
             noun_time = Float64[]
         )
     else
-        println(out,"wrong data type, choose fixations_on_surface or gaze_positions_on_surface")
+        @error "Unrecognized data type, use 'fixations_on_surface' or 'gaze_positions_on_surface'"
         return DataFrame()
     end
     words_sessions = ["01", "02", "03", "04"]
@@ -420,10 +431,9 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
 
     nouns_for_set = 0
     for session in words_sessions
-        #session = "02" #for testing
         nouns = get_and_reannotate_words(set, session; out=out)
         if size(nouns)[1]==0
-            println(out, "No data for the words for this session: $session")
+            @error "No words data for session <$session>; skipping."
             continue
         end
         
@@ -434,16 +444,13 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
         elseif data_type == "gaze_positions_on_surface"
             matcher_fixations = read_surfaces("$set"*"_01", surface_session, "gaze_positions_on_surface"; out=out)
             director_fixations = read_surfaces("$set"*"_02", surface_session, "gaze_positions_on_surface"; out=out)
-        else
-            println(out,"wrong data type, choose fixations_on_surface or gaze_positions_on_surface")
-            return DataFrame()
         end
         
-        if size(matcher_fixations)[1]==0
-            println(out,"No data for the matcher for this session: $session")
+        if size(matcher_fixations)[1] == 0
+            @error "No matcher data for session <$session>; skipping."
             continue
-        elseif size(director_fixations)[1]==0
-            println(out, "No data for the director for this session: $session, will only take data from the matcher")
+        elseif size(director_fixations)[1] == 0
+            @warn "No director data for session <$session>; data from matcher only will be used."
             set_fixations = matcher_fixations
         else
             set_fixations = vcat(matcher_fixations, director_fixations)
@@ -453,14 +460,14 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
         nouns_for_set += size(nouns)[1]
         #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
         nouns.time_windows = [(noun.time + epoch_start, noun.time - 0.2, noun.time + epoch_end) for noun in eachrow(nouns)]
-        println(out,size(nouns.time_windows)," time windows", " set $set session $session")
+        @debug "Time windows:" size=size(nouns.time_windows) set=set session=session
         #set fixations for nouns as an empty dataset of the same structure
         fixations_for_nouns = fixations_for_set
         for noun in eachrow(nouns)
             start_time, frame_time, end_time = noun.time_windows
             fixations_in_window = filter(row -> row.time_corrected >= frame_time && row.time_corrected <= end_time, set_fixations)
             if size(fixations_in_window)[1]==0
-                println(out,"No fixations in the period: frame_time $frame_time end $end_time")
+                @warn "No fixations in the period from frame [$frame_time] to end of window [$end_time]; skipping this noun."
                 nouns_for_set -= 1
                 continue
             end
@@ -475,65 +482,92 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
             fixations_for_nouns = vcat(fixations_for_nouns, fixations_in_window)
         end
         fixations_for_set = vcat(fixations_for_set, fixations_for_nouns)
-        println(out,"Fixations in the session $session:")
-        println(out,size(fixations_for_set))
+        @info "Number of fixations in session <$session>:" n_fixations=size(fixations_for_set)
     end
-    println(out,"Nouns for set $set: ", nouns_for_set)
-        return  fixations_for_set
+    @info "Numbers of nouns with associated fixations in set <$set>:" nouns_for_set
+    return  fixations_for_set
 end
 
 function check_april_tags_for_frames(frames; out=stdout)
-    if isempty(frames)
-        frames = CSV.read("frame_numbers_with_tokens.csv", DataFrame) |>
-        df -> transform!(df, :participant => ByRow(x-> x[1:2]) => :set) |>
-        df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session)
-        frames.new_frame_number = zeros(Int,size(frames, 1))
-    else
-        frames.new_frame_number = zeros(Int,size(frames, 1))
-    end
-    videos = unique(frames.video_path)
-    for video in videos
-        #video="" #for testing
-        surfaces_folder = joinpath(replace(video, "world.mp4" => ""),"exports")
-        if !isdir(surfaces_folder)
-            println(out,surfaces_folder)
-            println(out,"No surfaces for this session: $video")
-            continue
-        end
-        subfolders = [f for f in readdir(surfaces_folder ) if isdir(joinpath(surfaces_folder, f))]
-        if subfolders[1]=="surfaces"
-            surface_folder = joinpath(surfaces_folder, subfolders[1])
+    logger = SimpleLogger(out, Logging.Info)
+    with_logger(logger) do
+        if isempty(frames)
+            frames = CSV.read("frame_numbers_with_tokens.csv", DataFrame) |>
+            df -> transform!(df, :participant => ByRow(x-> x[1:2]) => :set) |>
+            df -> transform!(df, :session => ByRow(x-> lpad(x, 2, "0")) => :session)
+            frames.new_frame_number = zeros(Int,size(frames, 1))
         else
-            surface_folder = joinpath(surfaces_folder, subfolders[1],"surfaces")
+            frames.new_frame_number = zeros(Int,size(frames, 1))
         end
-        data, surf_names = TextParse.csvread(joinpath(surface_folder, "surf_positions_face.csv"))
-        april_tags =  DataFrame()
-        for (i, surf_name) in enumerate(surf_names)
-            april_tags[!, Symbol(surf_name)] = data[i]
-        end
-        april_tags_dict = Dict(row[:world_index] => row[:num_detected_markers] for row in eachrow(april_tags))
-        for frame in eachrow(frames)
-            println(out,frame.frame_number)
-            if haskey(april_tags_dict, frame.frame_number) && april_tags_dict[frame.frame_number] == 6
-                frame.new_frame_number = frame.frame_number
+        videos = unique(frames.video_path)
+        for video in videos
+            @info "Processing video $video ..."
+            surfaces_folder = joinpath(replace(video, "world.mp4" => ""),"exports")
+            if !isdir(surfaces_folder)
+                @error "No surfaces found for this session: $video\nExpected location: $surfaces_folder"
                 continue
-            else
-            #I want to have the frame with maximum tags recognized
-            #but only before the onset, with 30 fps 200ms is 6 frames
-                println(out,"not enough tags frame number: ", frame.frame_number)
-                frame_tags = Dict(key => value for (key, value) in april_tags_dict if key >= frame.frame_number - 10 && key <= frame.frame_number + 6)
-                println(out,frame_tags)
-                if isempty(frame_tags)
-                    frame.new_frame_number = 0
-                    continue
-                end
-                max_tags_recognized = maximum(values(frame_tags))
-                frame.new_frame_number =  [key for (key, value) in frame_tags if value == max_tags_recognized][1]
             end
+            subfolders = [f for f in readdir(surfaces_folder) if isdir(joinpath(surfaces_folder, f))]
+            if subfolders[1] == "surfaces"
+                surface_folder = joinpath(surfaces_folder, subfolders[1])
+            else
+                surface_folder = joinpath(surfaces_folder, subfolders[1], "surfaces")
+            end
+            data, surf_names = TextParse.csvread(joinpath(surface_folder, "surf_positions_face.csv"))
+            april_tags =  DataFrame()
+            for (i, surf_name) in enumerate(surf_names)
+                april_tags[!, Symbol(surf_name)] = data[i]
+            end
+            april_tags_dict = Dict(row[:world_index] => row[:num_detected_markers] for row in eachrow(april_tags))
+            # Find frame with maximum tags recognized
+            # but only before the onset, with 30 fps 200ms is 6 frames
+            min_recog_frames_required = 6
+            for frame in eachrow(frames)
+                frame_number = frame.frame_number
+                @debug "Evaluating frame $frame_number..."
+                n_tags_recognized = get(april_tags_dict, frame.frame_number, 0)
+                if haskey(april_tags_dict, frame.frame_number) && n_tags_recognized >= min_recog_frames_required
+                    frame.new_frame_number = frame.frame_number
+                    continue
+                else
+                    @warn "Not enough tags identified in frame number <$frame_number> ($n_tags_recognized/$min_recog_frames_required tags); checking neighboring frames."
+                    frame_tags = Dict(
+                        key => value for (key, value) in april_tags_dict
+                        if key >= frame.frame_number - 10
+                            && key <= frame.frame_number + min_recog_frames_required
+                    )
+                    if isempty(frame_tags)
+                        @warn "No suitable neighboring frames to frame <$frame_number>; skipping."
+                        frame.new_frame_number = 0
+                        continue
+                    end
+                    # Frames that tie for the maximum number of recognized tags
+                    max_tags_recognized = maximum(values(frame_tags))
+                    best_candidates = Dict(
+                        key => value for (key, value) in frame_tags
+                        if value == max_tags_recognized
+                    )
+                    @debug "Candidate neighboring frames and identified tag counts:" best_candidates
+                    
+                    # In case of tie, choose the frame closest to the original frame reference
+                    new_frame_number = argmin(
+                        k -> abs(k - frame.frame_number),
+                        keys(best_candidates)
+                    )
+                    if new_frame_number != frame_number
+                        @info "Using neighboring frame <$new_frame_number> with $max_tags_recognized recognized tags"
+                    else
+                        @warn "Original frame <$frame_number> has more recognized tags than neighboring frames; proceeding with original frame."
+                    end
+                    frame.new_frame_number = new_frame_number
+                end
+            end
+            
         end
-        
+        outcsv = joinpath(root_folder, "frame_numbers_corrected_with_tokens.csv")
+        CSV.write(outcsv, frames)
+        @info "Wrote corrected frame numbers with tokens to $outcsv"
     end
-    CSV.write("$root_folder/frame_numbers_corrected_with_tokens.csv", frames)
     return frames
 end
 
@@ -541,8 +575,9 @@ end
 
 function get_all_surface_matrices_for_frames(frames=DataFrame())
     if isempty(frames)
-        frames=CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv"), DataFrame) 
-        println(out,"frames read from file")
+        infile = joinpath(root_folder, "frame_numbers_corrected_with_tokens.csv")
+        frames = CSV.read(infile, DataFrame) 
+        @info "Reading frames from file $infile"
     end
     frames_sets_and_sessions =  select(frames, [:participant, :session, :new_frame_number]) |> unique |>
         df -> transform!(df, :new_frame_number => ByRow(x-> x) => :frame_number)
@@ -563,7 +598,6 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
     )
 
     for row in eachrow(sets_and_sessions)
-        #row = eachrow(sets_and_sessions)[1]
         participant = row.participant
         set=participant[1:2]
         session = row.session
@@ -575,7 +609,9 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
         surface_coordinates.session = fill(session, nrow(surface_coordinates))
         all_surface_coordinates = vcat(all_surface_coordinates, surface_coordinates)
     end
-    CSV.write("$root_folder/all_surface_matrices.csv", all_surface_coordinates)
+    outcsv = joinpath(root_folder, "all_surface_matrices.csv")
+    CSV.write(outcsv, all_surface_coordinates)
+    @info "Wrote surface matrices for frames to $outcsv"
     return all_surface_coordinates
 end
 
@@ -700,20 +736,27 @@ function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_tri
     return target_gazes, target_fixations
 end
 
-function get_all_gazes_and_fixations_by_frame(sets , epoch_start, epoch_end; out=stdout)
-    println(out,"Running get_all_gazes_and_fixations_by_frame for sets")
+function get_all_gazes_and_fixations_by_frame(sets, epoch_start, epoch_end; out=stdout)
+    logger = SimpleLogger(out, Logging.Info)
     all_gazes = DataFrame()
     all_fixations = DataFrame()
-    for set in sets
-        fixations = get_set_fixations_for_nouns(set,"fixations_on_surface", epoch_start, epoch_end; out)
-        gazes = get_set_fixations_for_nouns(set, "gaze_positions_on_surface", epoch_start, epoch_end; out)
-        all_gazes = vcat(all_gazes, gazes)
-        all_fixations = vcat(all_fixations, fixations)
+    with_logger(logger) do
+        for set in sets
+            @info "Processing gaze and fixation data  for set <$set>..."
+            fixations = get_set_fixations_for_nouns(set,"fixations_on_surface", epoch_start, epoch_end; out)
+            gazes = get_set_fixations_for_nouns(set, "gaze_positions_on_surface", epoch_start, epoch_end; out)
+            all_gazes = vcat(all_gazes, gazes)
+            all_fixations = vcat(all_fixations, fixations)
+        end
+        all_fixations.trial_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(all_fixations)]
+        all_gazes.trial_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(all_gazes)]
+        gaze_outcsv = joinpath(root_folder, "all_trial_gazes.csv")
+        fixation_outcsv = joinpath(root_folder, "all_trial_fixations.csv")
+        CSV.write(gaze_outcsv, all_gazes)
+        @info "Wrote trial gaze to $gaze_outcsv"
+        CSV.write(fixation_outcsv, all_fixations)
+        @info "Wrote trial fixations to $fixation_outcsv"
     end
-    all_fixations.trial_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(all_fixations)]
-    all_gazes.trial_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(all_gazes)]
-    CSV.write("$root_folder/all_trial_gazes.csv", all_gazes)
-    CSV.write("$root_folder/all_trial_fixations.csv", all_fixations)
     return all_gazes, all_fixations
 end
 
