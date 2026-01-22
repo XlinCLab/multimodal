@@ -17,7 +17,8 @@ yolo_output_path = ""
 #Get all coordinates for all recognized objects for all frames and write them to one dataset
 #it will be written to a cvs file "all_yolo_coordinates.csv"
 #lables_folder is a folder with labels .txt files for tne frames woth objects recognized by Yolo
-yolo_coordinates = get_all_yolo_coordinates(labels_folder)
+labels_yaml = ""
+yolo_coordinates = get_all_yolo_coordinates(labels_folder, labels_yaml)
 image_sizes = collect_image_dimensions(yolo_output_path)
 
 #uncomment the following lines if you want to load yolo_coordinates and surface positions from files that were made by the previous run

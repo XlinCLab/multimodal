@@ -1,7 +1,7 @@
 #functions
 
-# using Pkg
 # import Pkg
+# using Pkg
 # Pkg.add("XDF")
 # Pkg.add("EzXML")
 # Pkg.add("XMLDict")
@@ -14,6 +14,7 @@
 # Pkg.add("CSV")
 # Pkg.add("CairoMakie")
 # Pkg.add("Images")
+# Pkg.add("YAML")
 using FileIO
 using Printf
 Base.show(io::IO, f::Float64) = @printf(io, "%.2f", f)
@@ -28,6 +29,7 @@ using TextParse
 using CairoMakie
 using Images
 using Logging
+using YAML
 
 
 # functions that create aggregated tables with timestamps, lags and coordinates
@@ -171,8 +173,21 @@ function get_lag_ET(root_folder=root_folder; out=stdout)
     return lag 
 end
 
-function get_all_yolo_coordinates(labels_folder)
-    object_names=Dict([(0,"batterie"), (1,"blume"), (2,"creme"), (3,"kerze") ,(4, "spritze"), (5,"tasse"),(6,"tube"), (7,"vase")])
+function load_object_labels_from_yaml(yaml_path)
+    cfg = YAML.load_file(yaml_path)
+    names = cfg["names"]
+    return Dict(i - 1 => name for (i, name) in enumerate(names))
+end
+
+function get_all_yolo_coordinates(labels_folder, yaml_path)
+    @info "Loading object labels from $yaml_path"
+    object_labels = load_object_labels_from_yaml(yaml_path)
+    msg = join(
+        ["  class $k => $(object_labels[k])"
+        for k in sort(collect(keys(object_labels)))],
+        "\n"
+    )
+    @info "Object IDs and labels:\n$msg"
     all_yolo_coordinates = DataFrame(
            frame_number = Int[],
            set = String[],
@@ -195,12 +210,12 @@ function get_all_yolo_coordinates(labels_folder)
                 else
                     session="0"
                 end
-                object = object_names[parse(Int, object)]
+                object = object_labels[parse(Int, object)]
                 x = parse(Float64, split(line, " ")[2])
                 y = parse(Float64, split(line, " ")[3])
                 w = parse(Float64, split(line, " ")[4])
                 h = parse(Float64, split(line, " ")[5])
-                push!(all_yolo_coordinates, (frame_number,set,session, object, x, y, w, h))
+                push!(all_yolo_coordinates, (frame_number, set, session, object, x, y, w, h))
             end
         end
     end
