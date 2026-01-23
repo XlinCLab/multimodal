@@ -117,7 +117,7 @@ function get_all_timestamps_xdf(sets, root_folder=root_folder; out=stdout)
     with_logger(logger) do
         for set in sets
             @info "Extracting timestamps from xdf files in set <$set>"
-            timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set))
+            timestamps_xdf = vcat(timestamps_xdf,read_timestamps_from_xdf(set, root_folder))
         end
         # Define a function that converts a float to an integer
         float_to_int(x::Float64) = trunc(Int, x)
@@ -342,7 +342,7 @@ function read_surfaces(participant, session, data_type = "fixations_on_surface",
         return fixations_positions
 end
 
-function get_frames_from_fixations(all_fixations)
+function get_frames_from_fixations(all_fixations, root_folder=root_folder)
     frame_numbers = select(all_fixations, :frame_number, :participant, :session, :noun, :noun_time)
     frame_numbers = unique!(frame_numbers)
     #take only matcher videos
@@ -413,7 +413,7 @@ function get_and_reannotate_words(set, session, root_folder=root_folder; out=std
 end
 
 
-function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_end; out=stdout)
+function get_set_fixations_for_nouns(set::String, root_folder, data_type, epoch_start, epoch_end; out=stdout)
     logger = out === stdout ?
         ConsoleLogger(out, Logging.Info) :
         SimpleLogger(out, Logging.Info)
@@ -477,7 +477,7 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
 
         nouns_for_set = 0
         for session in words_sessions
-            nouns = get_and_reannotate_words(set, session; out=out)
+            nouns = get_and_reannotate_words(set, session, root_folder; out=out)
             if size(nouns)[1]==0
                 @error "No words data for session <$session>; skipping."
                 continue
@@ -485,11 +485,11 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
             
             surface_session = surface_sessions[session]
             if data_type == "fixations_on_surface"
-                matcher_fixations = read_surfaces("$set"*"_01", surface_session, "fixations_on_surface"; out=out)
-                director_fixations = read_surfaces("$set"*"_02", surface_session, "fixations_on_surface"; out=out)
+                matcher_fixations = read_surfaces("$set"*"_01", surface_session, "fixations_on_surface", root_folder; out=out)
+                director_fixations = read_surfaces("$set"*"_02", surface_session, "fixations_on_surface", root_folder; out=out)
             elseif data_type == "gaze_positions_on_surface"
-                matcher_fixations = read_surfaces("$set"*"_01", surface_session, "gaze_positions_on_surface"; out=out)
-                director_fixations = read_surfaces("$set"*"_02", surface_session, "gaze_positions_on_surface"; out=out)
+                matcher_fixations = read_surfaces("$set"*"_01", surface_session, "gaze_positions_on_surface", root_folder; out=out)
+                director_fixations = read_surfaces("$set"*"_02", surface_session, "gaze_positions_on_surface", root_folder; out=out)
             end
             
             if size(matcher_fixations)[1] == 0
@@ -618,7 +618,7 @@ end
 
 #functions that perform perspective transformation and assigne surfaces to object for every given moment (frame)
 
-function get_all_surface_matrices_for_frames(frames=DataFrame())
+function get_all_surface_matrices_for_frames(frames=DataFrame(), root_folder=root_folder)
     frames_sets_and_sessions =  select(frames, [:participant, :session, :new_frame_number]) |> unique |>
         df -> transform!(df, :new_frame_number => ByRow(x-> x) => :frame_number)
     sets_and_sessions = select(frames_sets_and_sessions, [:participant, :session]) |> unique
@@ -644,7 +644,7 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
         surface_session = surface_sessions[lpad(row.session,2,"0")]
         filtered = filter(row -> row.participant == participant && row.session == session, frames_sets_and_sessions)
         frame_numbers = filtered.frame_number
-        surface_coordinates = get_surface_matrices(participant,surface_session,frame_numbers)
+        surface_coordinates = get_surface_matrices(participant, surface_session, frame_numbers, root_folder)
         surface_coordinates.set = fill(set, nrow(surface_coordinates))
         surface_coordinates.session = fill(session, nrow(surface_coordinates))
         all_surface_coordinates = vcat(all_surface_coordinates, surface_coordinates)
@@ -652,7 +652,7 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
     return all_surface_coordinates
 end
 
-function get_surface_matrices(participant,session,framenumbers, root_folder=root_folder; out=stdout)
+function get_surface_matrices(participant, session, framenumbers, root_folder=root_folder; out=stdout)
     #CSV.read cannot parse nested lists of coordinates
     #!NB this function does not return set and session
     #NB! this function does not check for markers detected
@@ -768,7 +768,7 @@ function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_tri
     return target_gazes, target_fixations
 end
 
-function get_all_gazes_and_fixations_by_frame(sets, epoch_start, epoch_end; out=stdout)
+function get_all_gazes_and_fixations_by_frame(sets, root_folder, epoch_start, epoch_end; out=stdout)
     logger = out === stdout ?
         ConsoleLogger(out, Logging.Info) :
         SimpleLogger(out, Logging.Info)
@@ -777,8 +777,8 @@ function get_all_gazes_and_fixations_by_frame(sets, epoch_start, epoch_end; out=
     with_logger(logger) do
         for set in sets
             @info "Processing gaze and fixation data  for set <$set>..."
-            fixations = get_set_fixations_for_nouns(set,"fixations_on_surface", epoch_start, epoch_end; out)
-            gazes = get_set_fixations_for_nouns(set, "gaze_positions_on_surface", epoch_start, epoch_end; out)
+            fixations = get_set_fixations_for_nouns(set, root_folder, "fixations_on_surface", epoch_start, epoch_end; out)
+            gazes = get_set_fixations_for_nouns(set, root_folder, "gaze_positions_on_surface", epoch_start, epoch_end; out)
             all_gazes = vcat(all_gazes, gazes)
             all_fixations = vcat(all_fixations, fixations)
         end
