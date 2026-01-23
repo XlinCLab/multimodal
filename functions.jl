@@ -32,6 +32,25 @@ using Logging
 using YAML
 
 
+function write_results_csv(results, dir, outcsv, label = ""; out=stdout)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
+    with_logger(logger) do
+        outcsv = joinpath(dir, outcsv)
+        CSV.write(outcsv, results)
+        if label != ""
+            @info "Wrote $label to $outcsv"
+        else
+            @info "Wrote $outcsv"
+        end
+    end
+end
+
+
+pad2zero(obj) = lpad.(string.(obj), 2, '0')
+
+
 # functions that create aggregated tables with timestamps, lags and coordinates
 function get_json_timestamp(participant, session, root_folder=root_folder)
     surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
@@ -91,7 +110,9 @@ function read_timestamps_from_xdf(setting::String, root_folder=root_folder)
 end
 
 function get_all_timestamps_xdf(sets, root_folder=root_folder; out=stdout)
-    logger = SimpleLogger(out, Logging.Info)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
     timestamps_xdf = DataFrame(:set => String[], :session => String[],:stream => String[], :created => Float64[], :first_timestamp => Float64[], :last_timestamp => Float64[], :diff => Float64[], :duration => Float64[])
     with_logger(logger) do
         for set in sets
@@ -103,16 +124,15 @@ function get_all_timestamps_xdf(sets, root_folder=root_folder; out=stdout)
         transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=> (x -> x .* 1000) .=> names(timestamps_xdf, Float64))
         # Apply this function to each float column in the DataFrame
         transform!(timestamps_xdf, names(timestamps_xdf, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_xdf, Float64))
-        outcsv = joinpath(root_folder, "timestamps_xdf.csv")
-        CSV.write(outcsv, timestamps_xdf)
-        @info "Wrote timestamps from xdf files to $outcsv"
     end
     return timestamps_xdf
 end
 
 function get_all_timestamps_json(sets, root_folder=root_folder; out=stdout)
     # extract all timestamps from .json files
-    logger = SimpleLogger(out, Logging.Info)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
     timestamps_json = DataFrame(:set => String[], :session => String[], :stream => String[], :first_timestamp => Float64[],  :duration => Float64[])
     with_logger(logger) do
         for set in sets
@@ -120,18 +140,18 @@ function get_all_timestamps_json(sets, root_folder=root_folder; out=stdout)
             director = set * "_02"
             matcher = set * "_01"
             for session in ["01", "02", "03", "04"]
-                start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session)
+                start_time_synced_s_dir, duration_dir = get_json_timestamp(director, session, root_folder)
                 if start_time_synced_s_dir == 0
                     @error "ERROR: No director json file for set <$set> for session <$session>"
                     continue
                 end
                 push!(timestamps_json, (set, session,"ET_DESKTOP-5B8EI51", start_time_synced_s_dir, duration_dir))
-                start_time_synced_s_matcher = get_json_timestamp(matcher, session)
+                start_time_synced_s_matcher = get_json_timestamp(matcher, session, root_folder)
                 if start_time_synced_s_matcher == Dict()
                     @error "No matcher json file for <$set> for session <$session>"
                     continue
                 else
-                    start_time_synced_s_matcher, duration_matcher = get_json_timestamp(matcher, session)
+                    start_time_synced_s_matcher, duration_matcher = get_json_timestamp(matcher, session, root_folder)
                 end
                 push!(timestamps_json, (set, session,"ET_idslexp", start_time_synced_s_matcher, duration_matcher))
             end
@@ -140,15 +160,14 @@ function get_all_timestamps_json(sets, root_folder=root_folder; out=stdout)
         transform!( timestamps_json, names(timestamps_json, Float64) .=> (x -> x .* 1000) .=> names(timestamps_json, Float64))
         # Apply this function to each float column in the DataFrame
         transform!( timestamps_json, names( timestamps_json, Float64) .=>  (x -> float_to_int.(x)) .=> names(timestamps_json, Float64))
-        outcsv = joinpath(root_folder, "timestamps_ET.csv")
-        CSV.write(outcsv, timestamps_json)
-        @info "Wrote timestamps from json files to $outcsv"
     end
     return timestamps_json
 end
 
 function get_lag_ET(root_folder=root_folder; out=stdout)
-    logger = SimpleLogger(out, Logging.Info)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
     lag = DataFrame()
     with_logger(logger) do
         infile_xdf = joinpath(root_folder, "timestamps_xdf.csv")
@@ -165,10 +184,6 @@ function get_lag_ET(root_folder=root_folder; out=stdout)
         lag = innerjoin(ET_xdf, json, on = [:set, :session, :stream]) 
         transform!(lag, [:first_timestamp_xdf, :first_timestamp] => ByRow((x,y) -> (x - y)/1000) => :lag_timestamp)
         transform!(lag, [:duration, :duration_xdf] => ByRow((x,y) -> (x - y)/1000) => :lag_duration)
-
-        outcsv = joinpath(root_folder, "lag_data.csv")
-        CSV.write(outcsv, lag)
-        @info "Wrote eyetracker lag data to $outcsv"
     end
     return lag 
 end
@@ -201,15 +216,16 @@ function get_all_yolo_coordinates(labels_folder, yaml_path)
     for file in readdir(labels_folder)
         if occursin(".txt", file)
             frame_number = parse(Int, split(file, "_")[end] |> x -> split(x, ".")[1])
+            set = replace(split(file, "_")[1], "set" => "")
+            if length(split(file, "_"))>2
+                session = replace(split(file, "_")[3],"session" => "")
+            else
+                session = "0"
+            end
+            @debug "Extracting YOLO coordinates from $file" frame_number set session
             data = readlines(joinpath(labels_folder, file))
             for line in data
                 object = split(line, " ")[1]
-                set=replace(split(file, "_")[1], "set" => "")
-                if length(split(file, "_"))>2
-                    session=replace(split(file, "_")[3],"session" => "")
-                else
-                    session="0"
-                end
                 object = object_labels[parse(Int, object)]
                 x = parse(Float64, split(line, " ")[2])
                 y = parse(Float64, split(line, " ")[3])
@@ -219,14 +235,15 @@ function get_all_yolo_coordinates(labels_folder, yaml_path)
             end
         end
     end
-    CSV.write("$root_folder/all_yolo_coordinates.csv", all_yolo_coordinates)
     return all_yolo_coordinates
 end
 
 #functions that read words, gazes, fixations and create a framelist with tokens
 
 function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder; out=stdout)  # TODO update logging in here
-    logger = SimpleLogger(out, Logging.Info)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
     fixations_positions = DataFrame()
     with_logger(logger) do
         participant_folder = joinpath(root_folder, "DGAME3_$participant", "$session", "exports")
@@ -343,7 +360,9 @@ end
 #functions that add times of words
 
 function get_and_reannotate_words(set, session, root_folder=root_folder; out=stdout)
-    logger = SimpleLogger(out, Logging.Info)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
     target_words = DataFrame()
     with_logger(logger) do
         conditions = Dict([("01","11"),("02","12"), ("03", "21"), ("04" ,"22")])
@@ -395,7 +414,9 @@ end
 
 
 function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_end; out=stdout)
-    logger = SimpleLogger(out, Logging.Info)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
     fixations_for_set = DataFrame()
     with_logger(logger) do
         @debug "Running get_set_fixations_for_noun for set $set and data type $data_type"
@@ -480,7 +501,6 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
             else
                 set_fixations = vcat(matcher_fixations, director_fixations)
             end
-            #CSV.write("$root_folder/set_fixations.csv", set_fixations)
             # find all fixations that are -1 sec from the noun and up to +2 sec from the noun
             nouns_for_set += size(nouns)[1]
             #it was 1 second before ad 2 seconds after, but in two seconds they can switch to another object already
@@ -515,7 +535,9 @@ function get_set_fixations_for_nouns(set::String, data_type, epoch_start, epoch_
 end
 
 function check_april_tags_for_frames(frames; out=stdout)
-    logger = SimpleLogger(out, Logging.Info)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
     with_logger(logger) do
         if isempty(frames)
             frames = CSV.read("frame_numbers_with_tokens.csv", DataFrame) |>
@@ -590,9 +612,6 @@ function check_april_tags_for_frames(frames; out=stdout)
             end
             
         end
-        outcsv = joinpath(root_folder, "frame_numbers_corrected_with_tokens.csv")
-        CSV.write(outcsv, frames)
-        @info "Wrote corrected frame numbers with tokens to $outcsv"
     end
     return frames
 end
@@ -600,11 +619,6 @@ end
 #functions that perform perspective transformation and assigne surfaces to object for every given moment (frame)
 
 function get_all_surface_matrices_for_frames(frames=DataFrame())
-    if isempty(frames)
-        infile = joinpath(root_folder, "frame_numbers_corrected_with_tokens.csv")
-        frames = CSV.read(infile, DataFrame) 
-        @info "Reading frames from file $infile"
-    end
     frames_sets_and_sessions =  select(frames, [:participant, :session, :new_frame_number]) |> unique |>
         df -> transform!(df, :new_frame_number => ByRow(x-> x) => :frame_number)
     sets_and_sessions = select(frames_sets_and_sessions, [:participant, :session]) |> unique
@@ -635,9 +649,6 @@ function get_all_surface_matrices_for_frames(frames=DataFrame())
         surface_coordinates.session = fill(session, nrow(surface_coordinates))
         all_surface_coordinates = vcat(all_surface_coordinates, surface_coordinates)
     end
-    outcsv = joinpath(root_folder, "all_surface_matrices.csv")
-    CSV.write(outcsv, all_surface_coordinates)
-    @info "Wrote surface matrices for frames to $outcsv"
     return all_surface_coordinates
 end
 
@@ -714,7 +725,7 @@ end
 
 function transform_surface_to_image_coordinates(x, y, transform_matrix)
     pos_homogenous = [x, y, 1] # Add homogenous coordinate
-    #it looks like transposition brings image coorinate, non-transposed matrix brings normalized image coordinates
+    #it looks like transposition brings image coordinate, non-transposed matrix brings normalized image coordinates
     result_homogenous =  transpose(transform_matrix) * pos_homogenous # Actual transform
     result_homogenous .= result_homogenous ./ result_homogenous[end]  # normalize
     new_pos = result_homogenous[1:end-1]  # projection
@@ -733,18 +744,15 @@ function transform_surface_corners(pos, matrix)
     return new_pos
 end
 
-function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations, gazes_file="", fixations_file=""; out=stdout)
-    #get the gazes and fixations for the surface
-    if typeof(all_frame_objects.set[1]) == Int64
-        all_frame_objects.set = lpad.(string.(all_frame_objects.set), 2, '0')
-        all_frame_objects.session = lpad.(string.(all_frame_objects.session), 2, '0')
-    end
-    if typeof( all_trial_surfaces_gazes.session[1]) == Int64 
-        all_trial_surfaces_gazes.session = lpad.(string.(all_trial_surfaces_gazes.session), 2, '0')
-    end
-    if typeof(all_trial_surfaces_fixations.session[1]) == Int64 
-        all_trial_surfaces_fixations.session = lpad.(string.(all_trial_surfaces_fixations.session), 2, '0')
-    end
+function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations; out=stdout)
+    # Ensure set and session are both two-character strings, e.g. "01"
+    @debug "Standardizing type of set and session to two-character strings..."
+    all_frame_objects.set = pad2zero(all_frame_objects.set)
+    all_frame_objects.session = pad2zero(all_frame_objects.session)
+    all_trial_surfaces_gazes.session = pad2zero(all_trial_surfaces_gazes.session)
+    all_trial_surfaces_fixations.session = pad2zero(all_trial_surfaces_fixations.session)
+    @debug all_frame_objects.set all_frame_objects.session all_trial_surfaces_gazes.session all_trial_surfaces_fixations.session
+
     surfaces = rename(all_frame_objects, :object => :token, :surface_number => :surface) |>
     df -> transform!(df, :set => ByRow(x-> lpad(x, 2, "0")) => :set) |>
     df -> transform(df, :session =>ByRow(x-> lpad(x, 2, "0")) => :session)
@@ -757,13 +765,13 @@ function get_gazes_and_fixations_by_frame_and_surface(all_frame_objects, all_tri
 
     target_gazes = innerjoin(gazes, surfaces, on = [:noun_time, :set, :session, :token, :surface]) 
     target_fixations = innerjoin(fixations, surfaces, on = [:frame_number, :noun_time, :set, :session, :token, :surface])
-    CSV.write("$root_folder/target_gazes_1sec.csv", target_gazes)
-    CSV.write("$root_folder/target_fixations_1sec.csv", target_fixations)
     return target_gazes, target_fixations
 end
 
 function get_all_gazes_and_fixations_by_frame(sets, epoch_start, epoch_end; out=stdout)
-    logger = SimpleLogger(out, Logging.Info)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
     all_gazes = DataFrame()
     all_fixations = DataFrame()
     with_logger(logger) do
@@ -776,12 +784,6 @@ function get_all_gazes_and_fixations_by_frame(sets, epoch_start, epoch_end; out=
         end
         all_fixations.trial_time = [fixation.time_corrected - fixation.noun_time for fixation in eachrow(all_fixations)]
         all_gazes.trial_time = [gaze.time_corrected - gaze.noun_time for gaze in eachrow(all_gazes)]
-        gaze_outcsv = joinpath(root_folder, "all_trial_gazes.csv")
-        fixation_outcsv = joinpath(root_folder, "all_trial_fixations.csv")
-        CSV.write(gaze_outcsv, all_gazes)
-        @info "Wrote trial gaze to $gaze_outcsv"
-        CSV.write(fixation_outcsv, all_fixations)
-        @info "Wrote trial fixations to $fixation_outcsv"
     end
     return all_gazes, all_fixations
 end
@@ -796,131 +798,119 @@ function pixel_center_and_flip(x, y, img_width, img_height)
     return x, new_y
 end
 
-function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, root_folder, frames_corrected,image_sizes; out=stdout)
-    if isempty(frames_corrected)
-        frames_corrected=CSV.read(joinpath(root_folder,"frame_numbers_corrected_with_tokens.csv"), DataFrame) 
-        println(out,"frames read from file")
-    end
+function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, frames_corrected, image_sizes; out=stdout)
+    # Ensure set and session are both two-character strings, e.g. "01"
+    @debug "Standardizing type of set and session to two-character strings..."
+    yolo_coordinates.set = pad2zero(yolo_coordinates.set)
+    yolo_coordinates.session = pad2zero(yolo_coordinates.session)
+    image_sizes.set = pad2zero(image_sizes.set)
+    image_sizes.session = pad2zero(image_sizes.session)
+    surface_positions.set = pad2zero(surface_positions.set)
+    surface_positions.session = pad2zero(surface_positions.session)
+    frames_corrected.session = pad2zero(frames_corrected.session)
+    @debug "" yolo_coordinates.set yolo_coordinates.session image_sizes.set image_sizes.session surface_positions.set surface_positions.session frames_corrected.session
 
-    if isempty(surface_positions)
-        data, surf_names = TextParse.csvread(joinpath(root_folder,"all_surface_matrices.csv"))
-        surface_positions =  DataFrame()
-        for (i, surf_name) in enumerate(surf_names)
-            surface_positions[!, Symbol(surf_name)] = data[i]
-        end
-    end
-    if isempty(yolo_coordinates)
-        yolo_coordinates = CSV.read(joinpath(root_folder,"all_yolo_coordinates.csv"), DataFrame) 
-        println(out,"yolo_coordinates read from file")
-    end
-    if isempty(image_sizes)
-        image_sizes = CSV.read(joinpath(root_folder,"image_sizes.csv"), DataFrame) 
-        println(out,"image_sizes read from file")
-    end
-    #depending of if we have image sizes and yolo_coordinates in memory or from file#set can be integer or string
-    #let's make it string
-
-    if typeof(yolo_coordinates.set[1]) == Int64  || any(x -> length(x) == 1, yolo_coordinates.set) || any(x -> length(x) == 1, yolo_coordinates.session)
-        yolo_coordinates.set = lpad.(string.(yolo_coordinates.set), 2, '0')
-        yolo_coordinates.session = lpad.(string.(yolo_coordinates.session), 2, '0')
-    end
-    if typeof(image_sizes.set[1]) == Int64  || any(x -> length(x) == 1, image_sizes.set) || any(x -> length(x) == 1, image_sizes.session)
-        image_sizes.set = lpad.(string.(image_sizes.set), 2, '0')
-        image_sizes.session = lpad.(string.(image_sizes.session), 2, '0')
-    end
-    if typeof(surface_positions.set[1]) == Int64  || any(x -> length(x) == 1, surface_positions.set) || any(x -> length(x) == 1, surface_positions.session)
-        surface_positions.set = lpad.(string.(surface_positions.set), 2, '0')
-        surface_positions.session = lpad.(string.(surface_positions.session), 2, '0')
-    end
-
-    if typeof(frames_corrected.session[1]) == Int64  || any(x -> length(x) == 1, frames_corrected.session)
-        frames_corrected.session = lpad.(string.(frames_corrected.session), 2, '0')
-    end
     # now make a file with a map - frame,object,surface
     #assume, we have all the GOOD frames - with 6 April tages recognized
     all_frame_objects = DataFrame()
     for frame in eachrow(frames_corrected)
-        #frame=eachrow(frames_corrected)[2433]
         set = frame.participant[1:2]
-        current_size= filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, image_sizes)
+        current_size = filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, image_sizes)
+        @debug "" frame_number = frame.new_frame_number set current_size
         if isempty(current_size)
-            println(out,"No image size for frame: $(frame.new_frame_number)")
+            @error "No image size found for current frame; skipping." frame_number = frame.new_frame_number set
             continue
         end
         img_width, img_height = current_size.image_width[1], current_size.image_height[1]
         
         frame_objects = filter(row -> row[:frame_number] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session, yolo_coordinates)
         if isempty(frame_objects)
-            println(out,"No object coordinates for frame: $(frame.new_frame_number)")
+            @error "No object coordinates found for current frame; skipping." frame_number = frame.new_frame_number set
             continue
         end
         frame_surfaces = filter(row -> row[:world_index] == frame.new_frame_number && row[:set] == set && row[:session] == frame.session && row[:surface] != "face", surface_positions)
-        frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
+        frame_object_with_surfaces = get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height; out=out)
         frame_object_with_surfaces.corected_frame_number = fill(frame.new_frame_number, nrow(frame_object_with_surfaces))
         frame_object_with_surfaces.frame_number = fill(frame.frame_number, nrow(frame_object_with_surfaces))
         frame_object_with_surfaces.noun_time = fill(frame.noun_time, nrow(frame_object_with_surfaces))
         all_frame_objects = vcat(all_frame_objects, frame_object_with_surfaces)
-        
     end
-    CSV.write("$root_folder/all_frame_objects_surfaces.csv", all_frame_objects)
     return all_frame_objects
 end
 
-#this function should be optimized later, use the least distance to the surface center
-function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height)
-    #this function is work in progress
-    # Select the relevant row based on world_index (frame number)
-    corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
-    center = [0.5, 0.5]
-    frame_objects.surface_number = fill("outside all", nrow(frame_objects))
-    for object in eachrow(frame_objects)
-        object.x, object.y, object.w, object.h =  transform_yolo_to_pixels(object.x, object.y, object.w, object.h,img_width, img_height)
-        #println(out,"Object: $(object.object), x: $(object.x), y: $(object.y)")
-        for surface in eachrow(frame_surfaces)
-            # Extract the transformation matrix
-            surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
-            surface_corners = transform_surface_corners(corners, surf_to_img_trans)
-            surface_center = transform_surface_to_image_coordinates(center[1], center[2], surf_to_img_trans)
-                #println(out,"Surface $(surface.surface) center:")
-                 #println(out,"x: $(surface_center[1]), y: $(surface_center[2])")
-            #check if object is inside the surface
-            min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
-            if object.x >= min_x && object.x <= max_x && object.y >= min_y && object.y <=max_y
-                object.surface_number = surface.surface
-                continue
-            end
-        end
-             #if an object center is outside all, try lower center
-        if object.surface_number == "outside all" 
+# TODO this function should be optimized later, use the least distance to the surface center
+# TODO this function is work in progress
+function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height; out=stdout)
+    logger = out === stdout ?
+        ConsoleLogger(out, Logging.Info) :
+        SimpleLogger(out, Logging.Info)
+    with_logger(logger) do
+        # Select the relevant row based on world_index (frame number)
+        corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
+        center = [0.5, 0.5]
+        # Initialize surface_number field with "outside all", which will be replaced if an object's coordinates are within the bounds of a surface
+        frame_objects.surface_number = fill("outside all", nrow(frame_objects))
+        for object in eachrow(frame_objects)
+            object.x, object.y, object.w, object.h = transform_yolo_to_pixels(object.x, object.y, object.w, object.h,img_width, img_height)
+            @debug object=object.object x=object.x y=object.y
             for surface in eachrow(frame_surfaces)
-                object_y = object.y + object.h/2
+                # Extract the transformation matrix
+                @debug "Extracting transformation matrix from surface..." surface=surface.surface
                 surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
                 surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+                surface_center = transform_surface_to_image_coordinates(center[1], center[2], surf_to_img_trans)
+                @debug "Surface <$(surface.surface)> center:" x=surface_center[1] y=surface_center[2]
+                # Check if object is inside the surface
                 min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
-                #println(out,"Surface $(surface.surface) limits:")
-                #println(out,"min_x: $min_x, max_x: $max_x, min_y: $min_y, max_y: $max_y")
-                if object.x >= min_x && object.x <= max_x && object_y >= min_y && object_y <=max_y
+                if object.x >= min_x && object.x <= max_x && object.y >= min_y && object.y <=max_y
+                    @info "Object <$(object.object)> centerpoint detected on surface <$(surface.surface)>" min_x max_x min_y max_y object.x object.y
                     object.surface_number = surface.surface
                     continue
                 end
             end
-        end
 
-        #if lower center does not work, try upper center
-        if object.surface_number == "outside all"
-            for surface in eachrow(frame_surfaces)
-                object_y = object.y - object.h/2
-                surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
-                surface_corners = transform_surface_corners(corners, surf_to_img_trans)
-                if object.x > minimum(surface_corners[:, 1]) && object.x < maximum(surface_corners[:, 1]) && object_y > minimum(surface_corners[:, 2]) && object_y < maximum(surface_corners[:, 2])
-                    object.surface_number = surface.surface
-                    continue
+            # If an object's centerpoint is outside the bounds of all surfaces, try object's lower center
+            if object.surface_number == "outside all"
+                @warn "Object <$(object.object)> center is outside all surfaces; trying object's lower center" object_x=object.x object_y=object.y object_height=object.h new_object_y=(object.y + object.h/2)
+                for surface in eachrow(frame_surfaces)
+                    object_y = object.y + object.h/2
+                    surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
+                    surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+                    min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
+                    @debug "Surface <$(surface.surface)> limits:" surface_corners min_x, max_x, min_y, max_y
+                    if object.x >= min_x && object.x <= max_x && object_y >= min_y && object_y <=max_y
+                        @info "Object <$(object.object)> lower centerpoint detected on surface <$(surface.surface)>" min_x max_x min_y max_y object.x object_y
+                        object.surface_number = surface.surface
+                        continue
+                    end
                 end
+            end
+            
+            # If lower center does not work, try upper center
+            if object.surface_number == "outside all"
+                @warn "Object <$(object.object)> center is outside all surfaces; trying object's upper center" object_x=object.x object_y=object.y object_height=object.h new_object_y=(object.y - object.h/2)
+                for surface in eachrow(frame_surfaces)
+                    object_y = object.y - object.h/2
+                    surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
+                    surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+                    min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
+                    if object.x > min_x && object.x < max_x && object_y > min_y && object_y < max_y
+                        @info "Object <$(object.object)> upper centerpoint detected on surface <$(surface.surface)>" min_x max_x min_y max_y object.x object_y
+                        object.surface_number = surface.surface
+                        continue
+                    end
+                end
+            end
+            
+            # Log error if still not found on any surface
+            if object.surface_number == "outside all"
+                @error "Object <$(object.object)> center is still not found on any surfaces. Further handling may need to be implemented."
             end
         end
     end
     return frame_objects
 end
+
 
 function transform_yolo_to_pixels(x,y,w,h,img_width,img_height)
     new_x = x*img_width
@@ -929,6 +919,8 @@ function transform_yolo_to_pixels(x,y,w,h,img_width,img_height)
     new_h = h*img_height
     return new_x, new_y, new_w, new_h
 end
+
+
 function print_folder_structure(path::String, indent::String = "")
     # List all files and directories in the given path
     entries = readdir(path)
@@ -952,28 +944,22 @@ function print_folder_structure(path::String, indent::String = "")
     end
 end
 
-function get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations)
-    #type checks for dataset loaded from file - set and session are there numbers
-    if typeof(all_frame_objects.set[1]) == Int64
-        all_frame_objects.set = lpad.(string.(all_frame_objects.set), 2, '0')
-        all_frame_objects.session = lpad.(string.(all_frame_objects.session), 2, '0')
-    end
-    if typeof( all_trial_surfaces_gazes.session[1]) == Int64 
-        all_trial_surfaces_gazes.session = lpad.(string.( all_trial_surfaces_gazes.session), 2, '0')
-    end
-    if typeof(all_trial_surfaces_fixations.session[1]) == Int64 
-        all_trial_surfaces_fixations.session = lpad.(string.(all_trial_surfaces_fixations.session), 2, '0')
-    end
+function get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations; out=stdout)
+    # Ensure set and session are both two-character strings, e.g. "01"
+    @debug "Standardizing type of set and session to two-character strings..."
+    all_frame_objects.set = pad2zero(all_frame_objects.set)
+    all_frame_objects.session = pad2zero(all_frame_objects.session)
+    all_trial_surfaces_gazes.session = pad2zero(all_trial_surfaces_gazes.session)
+    all_trial_surfaces_fixations.session = pad2zero(all_trial_surfaces_fixations.session)
+    @debug "" all_frame_objects.set all_frame_objects.session all_trial_surfaces_gazes.session all_trial_surfaces_fixations.session
   
     all_trial_surfaces_fixations.set .= [p[1:2] for p in all_trial_surfaces_fixations.participant]
     all_trial_surfaces_gazes.set .= [p[1:2] for p in all_trial_surfaces_gazes.participant]
     # Join all_frame_objects with all_trial_surfaces_gazes
-    joined_gazes = leftjoin( all_trial_surfaces_gazes, all_frame_objects, on = [:set, :session, :frame_number, :noun_time, :surface => :surface_number])
+    joined_gazes = leftjoin(all_trial_surfaces_gazes, all_frame_objects, on = [:set, :session, :frame_number, :noun_time, :surface => :surface_number])
     # Join the result with all_trial_surfaces_fixations
-    joined_fixations = leftjoin( all_trial_surfaces_fixations, all_frame_objects, on = [:set, :session, :frame_number, :noun_time, :surface => :surface_number])
+    joined_fixations = leftjoin(all_trial_surfaces_fixations, all_frame_objects, on = [:set, :session, :frame_number, :noun_time, :surface => :surface_number])
 
-    CSV.write(joinpath(root_folder,"all_trial_surfaces_gazes_with_objects.csv"), joined_gazes)
-    CSV.write(joinpath(root_folder,"all_trial_surfaces_fixations_with_objects.csv"), joined_fixations)
     return joined_fixations, joined_gazes
 end
 
@@ -991,8 +977,8 @@ end
 #additional utilies to plot surfaces and see if something is wrong 
 #note: CairoMakie flips the background image for whatever reason
 #fix image sizes in this function
-function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write_to_file=false; out=stdout)
-    #this function is work in progress
+function get_all_surfaces_for_a_frame(frame_number, set_surface_positions; out=stdout)
+    # TODO this function is work in progress
     img_width = 1024
     img_height = 768
 
@@ -1007,9 +993,6 @@ function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, write
         corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
         corners_coords = test_coordinates = transform_surface_corners(corners,  transform_matrix)
         surface_coords[surface.surface] = corners_coords
-    end
-    if write_to_file
-        CSV.write("surface_coords_$frame_number.csv", surface_coords)
     end
     return surface_coords
 end
@@ -1049,30 +1032,29 @@ function collect_image_dimensions(recognized_images_folder_path::String)
         image_width = Int[],
         image_height = Int[]
     )
- for file in files
+    for file in files
         filename = basename(file)
         frame_number = parse(Int, split(filename, "_")[end] |> x -> split(x, ".")[1])
-        set=replace(split(filename, "_")[1], "set" => "")
+        set = replace(split(filename, "_")[1], "set" => "")
         if length(split(filename, "_"))>2
-            session=replace(split(filename, "_")[3],"session" => "")
+            session = replace(split(filename, "_")[3],"session" => "")
         else
-            session="0"
+            session = "0"
         end
+        @debug "Extracting image dimensions from $file" frame_number set session
 
-        try
+        try # Check if the file is an image
             # Load the image
             img = load(file)
-            # Check if the file is an image
-                # Get the dimensions of the image
-                width, height = size(img)[2], size(img)[1]
-                # Append the information to the DataFrame
-                push!(image_sizes, (frame_number,set,session, width, height))
+            # Get the dimensions of the image
+            width, height = size(img)[2], size(img)[1]
+            # Append the information to the DataFrame
+            push!(image_sizes, (frame_number, set, session, width, height))
         catch e
             # Handle the case where the file is not an image
-            println(out,"Skipping file $file: $e")
+            @warn "Skipping file $file -- not an image" e
         end
     end
-    CSV.write("$root_folder/image_sizes.csv", image_sizes)
     return image_sizes
 end
 
