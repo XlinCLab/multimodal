@@ -1,5 +1,17 @@
 # multimodal
 
+## Table of Contents
+* [Introduction](#introduction)
+    * [DGAME](#dgame)
+* [Setup](#setup)
+    * [Submodules](#submodules)
+    * [Installation](#installation)
+* [Data structure](#data-structure)
+* [Pipeline](#pipeline)
+    * [Part 1: Data preprocessing, identification of relevant time windows, and optimal video frame selection](#part-1-data-preprocessing-identification-of-relevant-time-windows-and-optimal-video-frame-selection)
+    * [Part 2: Video frame extraction and computer vision object detection](#part-2-video-frame-extraction-and-computer-vision-object-detection)
+    * [Part 3: Object position detection and postprocessing](#part-3-object-position-detection-and-postprocessing)
+
 ## Introduction
 This repo contains a collection of Julia scripts to preprocess multimodal, naturalistic data collected using Lab Streaming Layer and Pupil Core mobile eye-tracker.
 
