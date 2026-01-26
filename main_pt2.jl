@@ -6,6 +6,7 @@ mkpath(log_dir)
 # YOLO output paths
 labels_folder = ""
 yolo_output_path = ""
+labels_yaml = ""
 @info "Data root: $data_root_dir"
 @info "YOLO output directory: $yolo_output_path"
 @info "Logs: $log_dir"
@@ -42,7 +43,6 @@ write_results_csv(surface_positions, outdir, "all_surface_matrices.csv", "surfac
 # end
 
 # Get all coordinates for all recognized objects for all frames and write to a single CSV file
-labels_yaml = ""
 yolo_coordinates = get_all_yolo_coordinates(labels_folder, labels_yaml)
 write_results_csv(yolo_coordinates, outdir, "all_yolo_coordinates.csv", "YOLO coordinates")
 # Yolo may change image size deleting the black borders, so we need to check the image sizes

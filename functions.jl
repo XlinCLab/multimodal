@@ -1,20 +1,3 @@
-#functions
-
-# import Pkg
-# using Pkg
-# Pkg.add("XDF")
-# Pkg.add("EzXML")
-# Pkg.add("XMLDict")
-# Pkg.add("JSON")
-# Pkg.add("LinearAlgebra")
-# Pkg.add("TextParse")
-# Pkg.add("MsgPack")
-# Pkg.add("FileIO")
-# Pkg.add("DataFrames")
-# Pkg.add("CSV")
-# Pkg.add("CairoMakie")
-# Pkg.add("Images")
-# Pkg.add("YAML")
 using FileIO
 using Printf
 Base.show(io::IO, f::Float64) = @printf(io, "%.2f", f)
@@ -811,7 +794,7 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, frame
     @debug "" yolo_coordinates.set yolo_coordinates.session image_sizes.set image_sizes.session surface_positions.set surface_positions.session frames_corrected.session
 
     # now make a file with a map - frame,object,surface
-    #assume, we have all the GOOD frames - with 6 April tages recognized
+    # assume that all frames here have maximum numbers of AprilTags recognized
     all_frame_objects = DataFrame()
     for frame in eachrow(frames_corrected)
         set = frame.participant[1:2]

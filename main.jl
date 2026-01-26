@@ -38,8 +38,7 @@ et_lag = get_lag_ET(data_root_dir; out=log_file)
 write_results_csv(et_lag, outdir, "lag_data.csv", "eyetracker lag data"; out=log_file)
 close(log_file)
 
-#Get all the frames of interest (200 milliseconds primary to the noun onset
-#check if all the april tags are recognized, if not
+# Get all the frames of interest (200 milliseconds prior to the noun onset)
 # Define epoch size for the fixation data, in seconds
 # epoch_start is the time before the noun onset, epoch_end is the time after the noun onset
 epoch_start, epoch_end = -1,1
@@ -55,8 +54,8 @@ close(log_file)
 @info "Extracting frames of interest (200 ms before noun onset)..."
 frames = get_frames_from_fixations(all_trial_surfaces_fixations, data_root_dir)
 
-# Correct frame numbers according to april tags recognized
-# Select the frame with the maximum number of april tags during the period from 1 sec to the noun onset
+# Correct frame numbers according to AprilTags recognized
+# Select the frame with the maximum number of AprilTags during the period from 1 sec to the noun onset
 log_file = joinpath(log_dir, "correcting_frame_numbers.log")
 @info "Selecting optimal frames...\nLog file: $log_file"
 log_file = open(log_file, "w")
