@@ -15,7 +15,7 @@
 ## Introduction
 This repo contains a collection of Julia scripts to preprocess multimodal, naturalistic data collected using Lab Streaming Layer and Pupil Core mobile eye-tracker.
 
-`functions.jl` contains a collection of Julia functions designed for processing eye-tracking data, handling various data formats, and performing transformations. These functions are specifically designed for working with data from the DGAME project (see [description below](#dgame)). `functions list.md` contains documentation for all functions.
+[`functions.jl`](./functions.jl) contains a collection of Julia functions designed for processing eye-tracking data, handling various data formats, and performing transformations. These functions are specifically designed for working with data from the DGAME project (see [description below](#dgame)). [`function_descriptions.md`](./docs/function_descriptions.md) contains documentation for all functions.
 
 ### DGAME
 The DGAME project is a naturalistic interactive experimental setting, where two participants separated by an obstacle (in this case, a wooden shelf with 4x4 compartments) have to reorder the objects on the shelf. Objects may be unique (e.g. only a single candle across all shelf compartments) or duplicated (e.g. two identical candles). One of the two participants, the so-called "Director", has a stack of cards depicting two adjacent shelf compartment containing objects. The Director must instruct the other participant, the so-called "Matcher", to move one of the objects in order to match the object positions in picture. Some of the shelf compartments are closed on the Director's side, so they cannot see all the objects, whereas the Matcher can see all objects in all compartments. In half of the trials the Director and the Matcher cannot see each other's faces. Each pair of participants has four sessions, 10 minutes each.
@@ -102,7 +102,7 @@ julia> exit()
 ```
 
 ## Data structure
-Please see `sample_DGAME_data_structure.txt` for an example of the expected directory and file structure required as input to this pipeline. An accompanying description of the relevant files and directories can be found in `data_structure_description.txt`.
+Please see [`sample_DGAME_data_structure.txt`](./docs/sample_DGAME_data_structure.txt) for an example of the expected directory and file structure required as input to this pipeline. An accompanying description of the relevant files and directories can be found in [`data_structure_description.txt`](./docs/data_structure_description.txt).
 
 Various file formats are expected and handled for different types of data, including:
 - `.csv` : fixation, gaze, and audio annotation data
@@ -125,7 +125,7 @@ This data processing pipeline consists of three major parts.
 - Extract surface fixations from eye-tracker data for the time periods of interest.
 - Select optimal video frame numbers at or near time points of interest where the maximum number of AprilTags was recognized.
 
-Part 1 of the pipeline is handled by the Julia script `main.jl`. Before running, ensure you enter the path your data directory as `data_root_dir`, to a desired output directory as `outdir`, and specify the relevant set IDs to be processed, e.g.:
+Part 1 of the pipeline is handled by the Julia script [`main.jl`](./main.jl). Before running, ensure you enter the path your data directory as `data_root_dir`, to a desired output directory as `outdir`, and specify the relevant set IDs to be processed, e.g.:
 ```julia
 data_root_dir = "~/Documents/projects/dgame_data/"
 outdir = "./out"
@@ -149,7 +149,7 @@ Part 2 of the pipeline is handled by the [`multimodal-yolo`](https://github.com/
 - Detect positions of objects recognized by the computer vision model in [Part 2](#part-2-video-frame-extraction-and-computer-vision-object-detection) relative to surfaces of interest.
 - Combine surface positions of recognized objects with eye-tracking gaze and fixation data.
 
-Part 3 of the pipeline is handled by the Julia script `main_pt2.jl`. Before running, ensure you enter the path your data directory as `data_root_dir` and an output directory as `outdir`, as well as the paths to the `YOLO` computer vision output from Step 2 and to the `.yaml` file where the object labels/names are defined, e.g.:
+Part 3 of the pipeline is handled by the Julia script [`main_pt2.jl`](./main_pt2.jl). Before running, ensure you enter the path your data directory as `data_root_dir` and an output directory as `outdir`, as well as the paths to the `YOLO` computer vision output from Step 2 and to the `.yaml` file where the object labels/names are defined, e.g.:
 ```julia
 data_root_dir = "~/Documents/projects/dgame_data/"
 outdir = "./out"
