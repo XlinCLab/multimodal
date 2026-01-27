@@ -22,10 +22,9 @@ function parse_commandline()
 end
 
 
-function main()
-    args = parse_commandline()
-    data_root_dir = args["data_root_dir"]
-    outdir = args["outdir"]
+function multimodal_pipeline_pt1(args)
+    data_root_dir = abspath(args["data_root_dir"])
+    outdir = abspath(args["outdir"])
     mkpath(outdir)
     log_dir = joinpath(outdir, "logs")
     mkpath(log_dir)
@@ -88,4 +87,7 @@ function main()
 end
 
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    args = parse_commandline()
+    multimodal_pipeline_pt1(args)
+end

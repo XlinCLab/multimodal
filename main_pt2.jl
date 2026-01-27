@@ -15,8 +15,6 @@ function parse_commandline()
             default = "./out"
         "--yolo_outdir"
             help = "Path to YOLO computer vision output directory from part 2 of the pipeline."
-        "--yolo_labels_dir"
-            help = "Path to YOLO computer vision labels output directory."  # TODO check if this is redudant
         "--labels_yaml"
             help = "Path to YOLO computer vision model's object names/labels .yaml file"
     end
@@ -25,16 +23,15 @@ function parse_commandline()
 end
 
 
-function main()
-    args = parse_commandline()
-    data_root_dir = args["data_root_dir"]
-    outdir = args["outdir"]
+function multimodal_pipeline_pt2(args)
+    data_root_dir = abspath(args["data_root_dir"])
+    outdir = abspath(args["outdir"])
     mkpath(outdir)
     log_dir = joinpath(outdir, "logs")
     mkpath(log_dir)
     # YOLO output paths
     yolo_outdir = args["yolo_outdir"]
-    yolo_labels_dir = args["yolo_labels_dir"]  # TODO check if this is redudant given yolo_outdir is already supplied
+    yolo_labels_dir = joinpath(yolo_outdir, "labels")
     labels_yaml = args["labels_yaml"]
     @info "Data root: $data_root_dir"
     @info "YOLO output directory: $yolo_outdir"
@@ -115,4 +112,7 @@ function main()
 end
 
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    args = parse_commandline()
+    multimodal_pipeline_pt2(args)
+end

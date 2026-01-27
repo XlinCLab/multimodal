@@ -151,7 +151,7 @@ Part 3 of the pipeline is handled by the Julia script [`main_pt2.jl`](./main_pt2
 
 Example usage:
 ```bash
-julia --project=./ main_pt2.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --yolo_outdir /path/to/yolo/output/dirrectory/from/pipeline/part/two --yolo_labels_dir /path/to/yolo/labels/output/directory/from/pipeline/part/two --labels_yaml /path/to/yolo/model/object/labels.yaml
+julia --project=./ main_pt2.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --yolo_outdir /path/to/yolo/output/dirrectory/from/pipeline/part/two --labels_yaml /path/to/yolo/model/object/labels.yaml
 ```
 
 For more details, see the help documentation:
