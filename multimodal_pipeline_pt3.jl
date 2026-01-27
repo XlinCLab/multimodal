@@ -23,7 +23,7 @@ function parse_commandline()
 end
 
 
-function multimodal_pipeline_pt2(args)
+function multimodal_pipeline_pt3(args)
     data_root_dir = abspath(args["data_root_dir"])
     outdir = abspath(args["outdir"])
     mkpath(outdir)
@@ -114,5 +114,5 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     args = parse_commandline()
-    multimodal_pipeline_pt2(args)
+    multimodal_pipeline_pt3(args)
 end
