@@ -34,9 +34,11 @@ end
 pad2zero(obj) = lpad.(string.(obj), 2, '0')
 
 
+surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
+
+
 # functions that create aggregated tables with timestamps, lags and coordinates
 function get_json_timestamp(participant, session, root_folder=root_folder)
-    surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
     surface_session = surface_sessions[session]
     session_file = joinpath(root_folder, "DGAME3_$participant", "$surface_session", "info.player.json")
     @info "Parsing timestamps from $session_file"
@@ -456,7 +458,6 @@ function get_set_fixations_for_nouns(set::String, root_folder, data_type, epoch_
             return DataFrame()
         end
         words_sessions = ["01", "02", "03", "04"]
-        surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])
 
         nouns_for_set = 0
         for session in words_sessions
@@ -605,7 +606,6 @@ function get_all_surface_matrices_for_frames(frames=DataFrame(), root_folder=roo
     frames_sets_and_sessions =  select(frames, [:participant, :session, :new_frame_number]) |> unique |>
         df -> transform!(df, :new_frame_number => ByRow(x-> x) => :frame_number)
     sets_and_sessions = select(frames_sets_and_sessions, [:participant, :session]) |> unique
-    surface_sessions = Dict([("01", "000"), ("02", "001"), ("03", "002"), ("04", "003")])  
     all_surface_coordinates = DataFrame(
         world_index = Int[],
         world_timestamp = Float64[],

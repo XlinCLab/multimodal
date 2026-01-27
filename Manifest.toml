@@ -2,7 +2,7 @@
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "3823e3f1c29c73ffcb47405c53e05f3f00eb6570"
+project_hash = "8f494bea3ab4714739ee37b86f2ba27725f68b23"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -50,6 +50,12 @@ deps = ["Colors"]
 git-tree-sha1 = "e092fa223bf66a3c41f9c022bd074d916dc303e7"
 uuid = "27a7e980-b3e6-11e9-2bcd-0b925532e340"
 version = "0.4.2"
+
+[[deps.ArgParse]]
+deps = ["Logging", "TextWrap"]
+git-tree-sha1 = "22cf435ac22956a7b45b0168abbc871176e7eecc"
+uuid = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+version = "1.2.0"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -1849,6 +1855,11 @@ version = "0.1.1"
 deps = ["CodecZlib", "DataStructures", "Dates", "DoubleFloats", "Mmap", "Nullables", "WeakRefStrings"]
 git-tree-sha1 = "eb1f4fb185c8644faa2d18d14c72f2c24412415f"
 uuid = "e0df1984-e451-5cb5-8b61-797a481e67e3"
+version = "1.0.2"
+
+[[deps.TextWrap]]
+git-tree-sha1 = "43044b737fa70bc12f6105061d3da38f881a3e3c"
+uuid = "b718987f-49a8-5099-9789-dcd902bef87d"
 version = "1.0.2"
 
 [[deps.ThreadingUtilities]]

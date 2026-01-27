@@ -125,16 +125,14 @@ This data processing pipeline consists of three major parts.
 - Extract surface fixations from eye-tracker data for the time periods of interest.
 - Select optimal video frame numbers at or near time points of interest where the maximum number of AprilTags was recognized.
 
-Part 1 of the pipeline is handled by the Julia script [`main.jl`](./main.jl). Before running, ensure you enter the path your data directory as `data_root_dir`, to a desired output directory as `outdir`, and specify the relevant set IDs to be processed, e.g.:
-```julia
-data_root_dir = "~/Documents/projects/dgame_data/"
-outdir = "./out"
-sets = ["11"]  # expected to be immediately under data_root_dir
+Part 1 of the pipeline is handled by the Julia script [`main.jl`](./main.jl). Example usage:
+```bash
+julia --project=./ main.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13
 ```
 
-Run the script with the following command:
+For more details, see the help documentation:
 ```bash
-julia --project=./ main.jl
+julia --project=./ main.jl --help
 ```
 
 ### Part 2: Video frame extraction and computer vision object detection
@@ -149,17 +147,14 @@ Part 2 of the pipeline is handled by the [`multimodal-yolo`](https://github.com/
 - Detect positions of objects recognized by the computer vision model in [Part 2](#part-2-video-frame-extraction-and-computer-vision-object-detection) relative to surfaces of interest.
 - Combine surface positions of recognized objects with eye-tracking gaze and fixation data.
 
-Part 3 of the pipeline is handled by the Julia script [`main_pt2.jl`](./main_pt2.jl). Before running, ensure you enter the path your data directory as `data_root_dir` and an output directory as `outdir`, as well as the paths to the `YOLO` computer vision output from Step 2 and to the `.yaml` file where the object labels/names are defined, e.g.:
-```julia
-data_root_dir = "~/Documents/projects/dgame_data/"
-outdir = "./out"
-# YOLO output paths
-labels_folder = "~/Documents/projects/multimodal/multimodal-yolo/results/output/labels"
-yolo_output_path = "~/Documents/projects/multimodal/multimodal-yolo/results/output"
-labels_yaml = "./multimodal-yolo/data/dataset/data.yaml
+Part 3 of the pipeline is handled by the Julia script [`main_pt2.jl`](./main_pt2.jl). In addition to the paths to the data root directory and desired output directory (typically the same as in Part 1), paths to the YOLO computer vision model output from Step 2 in `multimodal-yolo` as well as to the `YOLO` model's `data.yaml` file. 
+
+Example usage:
+```bash
+julia --project=./ main_pt2.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --yolo_outdir /path/to/yolo/output/dirrectory/from/pipeline/part/two --yolo_labels_dir /path/to/yolo/labels/output/directory/from/pipeline/part/two --labels_yaml /path/to/yolo/model/object/labels.yaml
 ```
 
-Run the script with the following command:
+For more details, see the help documentation:
 ```bash
-julia --project=./ main_pt2.jl
+julia --project=./ main_pt2.jl --help
 ```
