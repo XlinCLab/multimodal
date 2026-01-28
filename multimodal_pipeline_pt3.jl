@@ -1,26 +1,4 @@
-using ArgParse
-
-@info "Loading environment..."
 include("functions.jl")
-
-
-function parse_commandline()
-    s = ArgParseSettings()
-
-    @add_arg_table s begin
-        "--data_root_dir"
-            help = "Path to root directory containing DGAME data."
-        "--outdir"
-            help = "Path to desired output directory. Defaults to a subdirectory 'out' of the current working directory."
-            default = "./out"
-        "--yolo_outdir"
-            help = "Path to YOLO computer vision output directory from part 2 of the pipeline."
-        "--labels_yaml"
-            help = "Path to YOLO computer vision model's object names/labels .yaml file"
-    end
-
-    return parse_args(s)
-end
 
 
 function multimodal_pipeline_pt3(args)
@@ -30,11 +8,11 @@ function multimodal_pipeline_pt3(args)
     log_dir = joinpath(outdir, "logs")
     mkpath(log_dir)
     # YOLO output paths
-    yolo_outdir = args["yolo_outdir"]
-    yolo_labels_dir = joinpath(yolo_outdir, "labels")
-    labels_yaml = args["labels_yaml"]
+    yolo_results = abspath(args["yolo_results"])
+    yolo_labels_dir = joinpath(yolo_results, "labels")
+    labels_yaml = abspath(args["labels_yaml"])
     @info "Data root: $data_root_dir"
-    @info "YOLO output directory: $yolo_outdir"
+    @info "YOLO output directory: $yolo_results"
     @info "Logs: $log_dir"
 
     # Default output if no output log file specified
@@ -69,7 +47,7 @@ function multimodal_pipeline_pt3(args)
     yolo_coordinates = get_all_yolo_coordinates(yolo_labels_dir, labels_yaml)
     write_results_csv(yolo_coordinates, outdir, "all_yolo_coordinates.csv", "YOLO coordinates")
     # Yolo may change image size deleting the black borders, so we need to check the image sizes
-    image_sizes = collect_image_dimensions(yolo_outdir)
+    image_sizes = collect_image_dimensions(yolo_results)
     write_results_csv(image_sizes, outdir, "image_sizes.csv", "image sizes")
 
     # Get surface information for recognized objects
@@ -109,10 +87,4 @@ function multimodal_pipeline_pt3(args)
     ### analysis
         #fit the model
         #model = fit(MixedModel, @formula(dependant_variable ~ fixed_effects + (1|random_effects)), data)
-end
-
-
-if abspath(PROGRAM_FILE) == @__FILE__
-    args = parse_commandline()
-    multimodal_pipeline_pt3(args)
 end

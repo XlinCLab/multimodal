@@ -1,25 +1,4 @@
-using ArgParse
-
-@info "Loading environment..."
 include("functions.jl")
-
-
-function parse_commandline()
-    s = ArgParseSettings()
-
-    @add_arg_table s begin
-        "--data_root_dir"
-            help = "Path to root directory containing DGAME data."
-        "--outdir"
-            help = "Path to desired output directory. Defaults to a subdirectory 'out' of the current working directory."
-            default = "./out"
-        "--sets" # 
-            help = "List of set IDs to process (e.g. --sets 11 12 13). Expected to be directory labels immediately below data_root_dir. Every set has two participants and four sessions."
-            nargs = '+'
-    end
-
-    return parse_args(s)
-end
 
 
 function multimodal_pipeline_pt1(args)
@@ -84,10 +63,4 @@ function multimodal_pipeline_pt1(args)
     frames_corrected = check_april_tags_for_frames(frames; out=log_file)
     write_results_csv(frames_corrected, outdir, "frame_numbers_corrected_with_tokens.csv", "corrected frame numbers"; out=log_file)
     close(log_file)
-end
-
-
-if abspath(PROGRAM_FILE) == @__FILE__
-    args = parse_commandline()
-    multimodal_pipeline_pt1(args)
 end

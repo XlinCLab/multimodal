@@ -126,54 +126,41 @@ This data processing pipeline consists of three major parts.
 - Extract surface fixations from eye-tracker data for the time periods of interest.
 - Select optimal video frame numbers at or near time points of interest where the maximum number of AprilTags was recognized.
 
-Part 1 of the pipeline is handled by the Julia script [`multimodal_pipeline_pt1.jl`](./multimodal_pipeline_pt1.jl). Example usage:
-```bash
-julia --project=./ multimodal_pipeline_pt1.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13
-```
-
-For more details, see the help documentation:
-```bash
-julia --project=./ multimodal_pipeline_pt1.jl --help
-```
-
 ### Part 2: Video frame extraction and computer vision object detection
 - Extract video frames of interest that were selected/identified in [Part 1](#part-1-data-preprocessing-identification-of-relevant-time-windows-and-optimal-video-frame-selection).
 - (Optionally: Train a new computer vision model to detect objects of interest.)
 - Perform computer vision with pretrained [`YOLO`](https://github.com/WongKinYiu/yolov7) model to detect objects of interest and their coordinates in extracted video frames.
 
-Part 2 of the pipeline is handled by the [`multimodal-yolo`](https://github.com/XlinCLab/multimodal-yolo/) submodule. Please see the submodule's [`README`](https://github.com/XlinCLab/multimodal-yolo/blob/master/README.md) for more detailed instructions on how to run this step including required setup for the Python environment and Docker container. If this setup is complete, the Julia script [`multimodal_pipeline_pt2.jl`](./multimodal_pipeline_pt2.jl) can be used to run this step.
-
-Example usage:
-```bash
-julia --project=./ multimodal_pipeline_pt2.jl --frames_csv /path/to/csv/file/containing/corrected/video/frame/numbers/to/extract.csv --outdir /path/to/your/desidered/output/directory --multimodal_yolo_path /path/to/multimodal-yolo
-```
-
-For more details, see the help documentation and/or consult the [`multimodal-yolo README`](https://github.com/XlinCLab/multimodal-yolo/blob/master/README.md).
-```bash
-julia --project=./ multimodal_pipeline_pt2.jl --help
-```
+Part 2 of the pipeline is handled by the [`multimodal-yolo`](https://github.com/XlinCLab/multimodal-yolo/) submodule. Please see the submodule's [`README`](https://github.com/XlinCLab/multimodal-yolo/blob/master/README.md) for more detailed instructions on how to run this step including required setup for the Python environment and Docker container.
 
 ### Part 3: Object position detection and postprocessing
 - Perspective transform surface coordinate matrices into pixel coordinates in video frames. 
 - Detect positions of objects recognized by the computer vision model in [Part 2](#part-2-video-frame-extraction-and-computer-vision-object-detection) relative to surfaces of interest.
 - Combine surface positions of recognized objects with eye-tracking gaze and fixation data.
 
-Part 3 of the pipeline is handled by the Julia script [`multimodal_pipeline_pt3.jl`](./multimodal_pipeline_pt3.jl). In addition to the paths to the data root directory and desired output directory (typically the same as in Part 1), paths to the YOLO computer vision model output from Step 2 in `multimodal-yolo` as well as to the `YOLO` model's `data.yaml` file. 
-
-Example usage:
-```bash
-julia --project=./ multimodal_pipeline_pt3.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --yolo_outdir /path/to/yolo/output/dirrectory/from/pipeline/part/two --labels_yaml /path/to/yolo/model/object/labels.yaml
-```
-
-For more details, see the help documentation:
-```bash
-julia --project=./ multimodal_pipeline_pt3.jl --help
-```
+Part 3 of the pipeline is handled by the Julia script [`multimodal_pipeline_pt3.jl`](./multimodal_pipeline_pt3.jl). In addition to the paths to the data root directory and desired output directory (typically the same as in Part 1), paths to the YOLO computer vision model output from Step 2 in `multimodal-yolo` as well as to the `YOLO` model's `data.yaml` file are required.
 
 ### Full pipeline script
-If the setup required for `multimodal-yolo` (see the [`multimodal-yolo README`](https://github.com/XlinCLab/multimodal-yolo/blob/master/README.md)) is complete, the entire `multimodal` pipeline can be run with a single command using [`run_multimodal_pipeline.jl`](./run_multimodal_pipeline.jl).
+Assuming the setup required for `multimodal-yolo` (see the [`multimodal-yolo README`](https://github.com/XlinCLab/multimodal-yolo/blob/master/README.md)) is complete, the entire `multimodal` pipeline can be run with a single command using [`run_multimodal_pipeline.jl`](./run_multimodal_pipeline.jl).
 
 Example usage:
 ```bash
 julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13
+```
+
+By default, this script runs three parts of the `multimodal` pipeline. To run only certain parts instead, add the `--steps` argument.
+
+e.g. to run only steps 1 and 2
+```bash
+julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13 --steps 1 2
+```
+
+or to run only step 3:
+```bash
+julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13 --steps 3
+```
+
+For more details on additional optional input arguments, see the help documentation:
+```bash
+julia --project=./ run_multimodal_pipeline.jl --help
 ```

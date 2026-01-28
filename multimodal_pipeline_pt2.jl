@@ -1,24 +1,3 @@
-using ArgParse
-
-
-function parse_commandline()
-    s = ArgParseSettings()
-
-    @add_arg_table s begin
-        "--frames_csv"
-            help = "Path to CSV file containing (corrected) video frames to extract."
-        "--outdir"
-            help = "Path to desired output directory. Defaults to a subdirectory 'out' of the current working directory."
-            default = "./out"
-        "--multimodal_yolo_path"
-            help = "Path to clone of multimodal-yolo repo. Defaults to the path to this repo's  multimodal-yolo submodule"
-            default = abspath(joinpath(".", "multimodal-yolo"))
-    end
-
-    return parse_args(s)
-end
-
-
 function multimodal_pipeline_pt2(args)
     outdir = abspath(args["outdir"])
     frames_csv = abspath(args["frames_csv"])
@@ -35,10 +14,4 @@ function multimodal_pipeline_pt2(args)
     run(yolo_docker_cmd)
     # Change back to placeholder in docker compose file
     run(`sed -i "s|$(outdir)|<yourdataoutdir>|g" $(yolo_detect_docker_compose)`)
-end
-
-
-if abspath(PROGRAM_FILE) == @__FILE__
-    args = parse_commandline()
-    multimodal_pipeline_pt2(args)
 end
