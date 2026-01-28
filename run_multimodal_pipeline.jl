@@ -27,9 +27,12 @@ function multimodal_pipeline(args)
     @info "Initializing multimodal pipeline..."
     data_root_dir = abspath(args["data_root_dir"])
     outdir = abspath(args["outdir"])
+    frames_csv = joinpath(outdir, "frame_numbers_corrected_with_tokens.csv")
+    args["frames_csv"] = frames_csv
     yolo_outdir = joinpath(outdir, "yolo_results")
     args["yolo_outdir"] = yolo_outdir
     multimodal_yolo_path = abspath(joinpath(".", "multimodal-yolo"))
+    args["multimodal_yolo_path"] = multimodal_yolo_path
     labels_yaml = joinpath(multimodal_yolo_path, "data", "dataset", "data.yaml")  # TODO improve this location
     args["labels_yaml"] = labels_yaml
     @info "Data root: $data_root_dir"
