@@ -38,7 +38,7 @@ function multimodal_pipeline_pt2(args)
     # Run video frame extraction
     @info "Running video frame extraction..."
     frame_extraction_script = joinpath(multimodal_yolo_path, "extract_video_frames.py")
-    frame_extraction_cmd = `$(multimodal_yolo_venv_python) $(frame_extraction_script) --input_csv $(frames_csv) --outdir $(outdir)`
+    frame_extraction_cmd = `$(multimodal_yolo_venv_python) $(frame_extraction_script) --input_csv $(frames_csv) --outdir $(outdir) --logdir $(yolo_log_dir)`
     run(frame_extraction_cmd)
     @info "Video frame extraction completed."
     
