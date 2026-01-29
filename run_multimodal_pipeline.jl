@@ -27,10 +27,10 @@ function parse_commandline()
         "--multimodal_yolo_path"
             help = "Path to clone of multimodal-yolo repo. Defaults to the path to this repo's multimodal-yolo submodule"
             default = abspath(joinpath(".", "multimodal-yolo"))
+        "--yolo_model_path"
+            help = "Path to pretrained YOLO computer vision model directory containing model.yaml and weights.pt files."
         "--yolo_results"
             help = "Path to YOLO computer vision output directory from part 2 of the pipeline."
-        "--labels_yaml"
-            help = "Path to YOLO computer vision model's object names/labels .yaml file"
     end
 
     return parse_args(s)
@@ -63,8 +63,28 @@ function validate_pipeline_args(args)
 
     # Path to multimodal-yolo submodule: required for step 2
     multimodal_yolo_path = abspath(args["multimodal_yolo_path"])
-    if "2" in run_steps || "ALL" in run_steps    
+    if "2" in run_steps || "ALL" in run_steps
+        find_multimodal_yolo(args["multimodal_yolo_path"])
         @info "Using multimodal-yolo from: $multimodal_yolo_path"
+    end
+    
+    # Path to pretrained YOLO model: required for steps 2 and 3
+    yolo_model_path = abspath(args["yolo_model_path"])
+    if "2" in run_steps || "3" in run_steps || "ALL" in run_steps
+        # Verify that the pretrained YOLO model and its component files exist
+        if !isdir(yolo_model_path)
+            error("YOLO model not found: $yolo_model_path")
+        else
+            pretrained_weights = joinpath(yolo_model_path, "weights.pt")
+            yolo_model_yaml = joinpath(yolo_model_path, "model.yaml")
+            args["yolo_model_yaml"] = yolo_model_yaml
+            if !isfile(pretrained_weights) && ("2" in run_steps || "ALL" in run_steps)  # weights.pt only needed for part 2
+                error("YOLO model's weights file not found: $pretrained_weights")
+            elseif !isfile(yolo_model_yaml) && ("3" in run_steps || "ALL" in run_steps)  # model.yaml only needed for part 3
+                error("YOLO model file not found: $yolo_model_yaml")
+            end
+        end
+        @info "Using pretrained YOLO model: $yolo_model_path"
     end
 
     # YOLO results: required for step 3
@@ -75,13 +95,6 @@ function validate_pipeline_args(args)
         end
         yolo_results = abspath(args["yolo_results"])
         @info "YOLO output directory: $yolo_results"
-
-        # YOLO computer vision model .yaml file containing object labels/names
-        if args["labels_yaml"] === nothing
-            labels_yaml = joinpath(multimodal_yolo_path, "data", "dataset", "data.yaml")  # TODO improve this location
-            args["labels_yaml"] = labels_yaml
-            @debug "YOLO model labels .yaml file: $labels_yaml"
-        end
     end
 
     return args

@@ -1,17 +1,37 @@
-function multimodal_pipeline_pt2(args)
-    outdir = abspath(args["outdir"])
-    frames_csv = abspath(args["frames_csv"])
-    
-    # Find location of multimodal-yolo and its Python environment
-    multimodal_yolo_path = abspath(args["multimodal_yolo_path"])
-    isdir
+function find_multimodal_yolo(multimodal_yolo_path)
+    multimodal_yolo_path = abspath(multimodal_yolo_path)
     if !isdir(multimodal_yolo_path)
         error("multimodal-yolo not found: $multimodal_yolo_path")
     end
     multimodal_yolo_venv_python = joinpath(multimodal_yolo_path, ".venv", "bin", "python")
     if !isfile(multimodal_yolo_venv_python)
-        error("Python environment for multimodal-yolo not found: $multimodal_yolo_venv_python")
+        error("Python virtual environment for multimodal-yolo not found: $multimodal_yolo_venv_python")
     end
+    return multimodal_yolo_path, multimodal_yolo_venv_python
+end
+
+
+function multimodal_pipeline_pt2(args)
+    outdir = abspath(args["outdir"])
+    frames_csv = abspath(args["frames_csv"])
+    
+    # Verify that the pretrained YOLO model and its component files exist
+    yolo_model_path = abspath(args["yolo_model_path"])
+    if !isdir(yolo_model_path)
+        error("YOLO model not found: $yolo_model_path")
+    else
+        pretrained_weights = joinpath(yolo_model_path, "weights.pt")
+        model_data_yaml = joinpath(yolo_model_path, "model.yaml")
+        if !isfile(pretrained_weights)
+            error("YOLO model's weights file not found: $pretrained_weights")
+        elseif !isfile(model_data_yaml)
+            error("YOLO model file not found: $model_data_yaml")
+        end
+    end
+    
+    # Find location of multimodal-yolo and its Python virtual environment
+    multimodal_yolo_path, multimodal_yolo_venv_python = find_multimodal_yolo(args["multimodal_yolo_path"])
+    @info "Using multimodal-yolo from: $multimodal_yolo_path"
     
     # Create temporary directory in outdir with backup of original docker-compose file before modification
     docker_compose_filename = "docker-compose.detect.yml"
@@ -26,8 +46,10 @@ function multimodal_pipeline_pt2(args)
         error("docker-compose file not found: $yolo_detect_docker_compose")
     end
     # Adjust file paths in docker-compose file
-    @info "Setting YOLO data source to $outdir ..."
-    run(`sed -i "s|<yourdataoutdir>:|$(outdir):|g" $(yolo_detect_docker_compose)`)
+    @info "YOLO data source: $outdir "
+    run(`sed -i "s|<yourdatadir>:|$(outdir):|g" $(yolo_detect_docker_compose)`)
+    @info "YOLO model: $yolo_model_path"
+    run(`sed -i "s|<youryolomodel>:|$(yolo_model_path):|g" $(yolo_detect_docker_compose)`)
     # Make a copy of this docker-compose and save in log directory
     yolo_log_dir = joinpath(outdir, "logs", "yolo")
     mkpath(yolo_log_dir)

@@ -10,8 +10,9 @@ function multimodal_pipeline_pt3(args)
     # YOLO output paths
     yolo_results = abspath(args["yolo_results"])
     yolo_labels_dir = joinpath(yolo_results, "labels")
-    labels_yaml = abspath(args["labels_yaml"])
+    yolo_model_yaml = abspath(args["yolo_model_yaml"])
     @info "Data root: $data_root_dir"
+    @info "YOLO model: $yolo_model_yaml"
     @info "YOLO output directory: $yolo_results"
     @info "Logs: $log_dir"
 
@@ -44,7 +45,7 @@ function multimodal_pipeline_pt3(args)
     # end
 
     # Get all coordinates for all recognized objects for all frames and write to a single CSV file
-    yolo_coordinates = get_all_yolo_coordinates(yolo_labels_dir, labels_yaml)
+    yolo_coordinates = get_all_yolo_coordinates(yolo_labels_dir, yolo_model_yaml)
     write_results_csv(yolo_coordinates, outdir, "all_yolo_coordinates.csv", "YOLO coordinates")
     # Yolo may change image size deleting the black borders, so we need to check the image sizes
     image_sizes = collect_image_dimensions(yolo_results)

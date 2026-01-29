@@ -145,19 +145,19 @@ Assuming the setup required for `multimodal-yolo` (see the [`multimodal-yolo REA
 
 Example usage:
 ```bash
-julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13
+julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13 --yolo_model_path /path/to/pretrained/yolo/model
 ```
 
 By default, this script runs three parts of the `multimodal` pipeline. To run only certain parts instead, add the `--steps` argument.
 
 e.g. to run only steps 1 and 2
 ```bash
-julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13 --steps 1 2
+julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13 --yolo_model_path /path/to/pretrained/yolo/model --steps 1 2
 ```
 
 or to run only step 3:
 ```bash
-julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13 --steps 3
+julia --project=./ run_multimodal_pipeline.jl --data_root_dir /path/to/your/data/root/directory --outdir /path/to/your/desidered/output/directory --sets 11 12 13 --yolo_model_path /path/to/pretrained/yolo/model --steps 3
 ```
 
 For more details on additional optional input arguments, see the help documentation:
