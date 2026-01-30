@@ -31,6 +31,7 @@
 - [collect_image_dimensions](#collect_image_dimensions)
 - [get_joint_attention_fixations](#get_joint_attention_fixations)
 - [get_joint_attention_gaze_positions](#get_joint_attention_gaze_positions)
+- [plot_joint_attention](#plot_joint_attention)
 - [read_intrinsics](#read_intrinsics)
 
 ---
@@ -656,6 +657,27 @@ Calculates joint attention based on gaze positions.
 
 ### Description
 Computes joint attention by joining gaze position data from director and matcher.
+
+---
+
+## plot_joint_attention
+
+```julia
+plot_joint_attention(set, session, joint_attention_type="fixation")
+```
+
+Plots and displays joint attention fixations or gazes on surfaces.
+
+### Arguments
+- `set`: String identifier for the set
+- `session`: String identifier for the session
+- `joint_attention_type`: String type of joint attention, either `fixation` or `gaze`
+
+### Returns
+None
+
+### Description
+Plots and displays joint attention (fixations or gazes) on surfaces in a given set and session.
 
 ---
 

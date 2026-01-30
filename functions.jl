@@ -1018,10 +1018,43 @@ function get_joint_attention_gaze_positions(set, session)
     return joint_attention
 end
 
+
+function plot_joint_attention(set, session, joint_attention_type="fixation")
+    if joint_attention_type == "fixation"
+        joint_attention_func = get_joint_attention_fixations
+    elseif joint_attention_type == "gaze"
+        joint_attention_func = get_joint_attention_gaze_positions
+    else
+        error("Invalid joint_attention_type value '$type' given. Valid values are 'fixation' or 'gaze'.")
+    end
+        
+    joint_attention = joint_attention_func(set, session) |> 
+    df -> select!(df, [:time_sec, :world_index, :surface])
+    unique!(joint_attention)
+
+    # Aggregate the data
+    gazes_by_time = combine(groupby(joint_attention, [:world_index, :surface]), nrow => :gazes)
+
+    # Create the plot
+    fig = Figure()
+    # Get the unique surfaces
+    surfaces = unique(joint_attention.surface)
+    # Create a Figure with one row for each surface
+    fig = Figure(resolution = (600, 400 * length(surfaces)))
+
+    for (i, surface) in enumerate(surfaces)
+        ax = Axis(fig[i, 1])
+        surface_data = gazes_by_time[gazes_by_time.surface .== surface, :]
+        scatter!(ax, surface_data.:world_index, surface_data.gazes, label = surface)
+    end
+
+    fig
+end
+
+
 #additional utilities to get camera parameters
 function read_intrinsics(file_path)
     binary_content = read_binary_file(file_path)
     data = MsgPack.unpack(binary_content)
     return data
 end
-
