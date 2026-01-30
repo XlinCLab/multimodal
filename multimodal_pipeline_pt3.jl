@@ -80,12 +80,4 @@ function multimodal_pipeline_pt3(args)
     write_results_csv(target_fixations, outdir, "target_fixations_1sec.csv"; out=log_file)
     close(log_file)
 
-    # TODO
-    #this is an optional part to plot a frame if there is something suspicious going on with the surfaces
-    #surface_coordinates=get_all_surfaces_for_a_frame(19787, frame_surfaces)
-    #plot_surfaces(surface_coordinates, img_width, img_height, "/Users/varya/Desktop/Python/multimodal-yolo/data/results/output/set05_01_session2_frame_9690.jpg")
-
-    ### analysis
-        #fit the model
-        #model = fit(MixedModel, @formula(dependant_variable ~ fixed_effects + (1|random_effects)), data)
 end

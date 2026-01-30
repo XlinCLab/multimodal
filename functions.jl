@@ -225,7 +225,7 @@ end
 
 #functions that read words, gazes, fixations and create a framelist with tokens
 
-function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder; out=stdout)  # TODO update logging in here
+function read_surfaces(participant, session, data_type = "fixations_on_surface", root_folder=root_folder; out=stdout)
     logger = out === stdout ?
         ConsoleLogger(out, Logging.Info) :
         SimpleLogger(out, Logging.Info)
