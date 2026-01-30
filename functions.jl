@@ -602,7 +602,7 @@ end
 
 #functions that perform perspective transformation and assigne surfaces to object for every given moment (frame)
 
-function get_all_surface_matrices_for_frames(frames=DataFrame(), root_folder=root_folder)
+function get_all_surface_matrices_for_frames(frames, root_folder=root_folder)
     frames_sets_and_sessions =  select(frames, [:participant, :session, :new_frame_number]) |> unique |>
         df -> transform!(df, :new_frame_number => ByRow(x-> x) => :frame_number)
     sets_and_sessions = select(frames_sets_and_sessions, [:participant, :session]) |> unique
@@ -698,14 +698,6 @@ function parse_transformation_matrix(matrix_str)
     return reshape(parse.(Float64, number_strs), 3, 3)
 end
 
-function transform_image_to_surface_coordinates(x, y, transform_matrix)
-    pos_homogenous = [x, y, 1] # Add homogenous coordinate
-    result_homogenous =  (transform_matrix) * pos_homogenous # Actual transform
-    result_homogenous .= result_homogenous ./ result_homogenous[end]  # normalize
-    new_pos = result_homogenous[1:end-1]  # projection
-    return new_pos[1], new_pos[2]
-end
-
 function transform_surface_to_image_coordinates(x, y, transform_matrix)
     pos_homogenous = [x, y, 1] # Add homogenous coordinate
     #it looks like transposition brings image coordinate, non-transposed matrix brings normalized image coordinates
@@ -771,15 +763,6 @@ function get_all_gazes_and_fixations_by_frame(sets, root_folder, epoch_start, ep
     return all_gazes, all_fixations
 end
 
-function pixel_center_and_flip(x, y, img_width, img_height)
-    # Assuming x and y are in pixel center coordinates
-    # Flip horizontally
-    new_x = img_width - x - 1
-    # Flip vertically
-    new_y = img_height - y - 1
-    
-    return x, new_y
-end
 
 function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, frames_corrected, image_sizes; out=stdout)
     # Ensure set and session are both two-character strings, e.g. "01"
@@ -895,7 +878,7 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
 end
 
 
-function transform_yolo_to_pixels(x,y,w,h,img_width,img_height)
+function transform_yolo_to_pixels(x, y, w, h, img_width, img_height)
     new_x = x*img_width
     new_w = w*img_width
     new_y = y*img_height
@@ -903,29 +886,6 @@ function transform_yolo_to_pixels(x,y,w,h,img_width,img_height)
     return new_x, new_y, new_w, new_h
 end
 
-
-function print_folder_structure(path::String, indent::String = "")
-    # List all files and directories in the given path
-    entries = readdir(path)
-    # Sort entries to list directories first, then files
-    sorted_entries = sort(entries, by = x -> (isdir(joinpath(path, x)) ? 0 : 1, x))
-    
-    for (i, entry) in enumerate(sorted_entries)
-        # Determine if the current entry is the last in the list
-        is_last = i == length(sorted_entries)
-        # Prepare the prefix for printing
-        prefix = is_last ? "└── " : "├── "
-        # Print the current entry
-        println(out,indent * prefix * entry)
-        
-        # If the entry is a directory, recursively print its contents
-        full_path = joinpath(path, entry)
-        if isdir(full_path)
-            new_indent = indent * (is_last ? "    " : "│   ")
-            print_folder_structure(full_path, new_indent)
-        end
-    end
-end
 
 function get_object_position_for_all_trial_fixations(all_frame_objects, all_trial_surfaces_gazes, all_trial_surfaces_fixations; out=stdout)
     # Ensure set and session are both two-character strings, e.g. "01"
@@ -946,14 +906,6 @@ function get_object_position_for_all_trial_fixations(all_frame_objects, all_tria
     return joined_fixations, joined_gazes
 end
 
-#functions for exploratory Plots
-function surface_heatmap() 
-    #this function is work in progress
-    #for each session:
-        # fixations on face
-        #fixations on hands
-        # fixations on target objects
-end
 
 #functions for the analysis
 
