@@ -644,8 +644,7 @@ function get_surface_matrices(participant, session, framenumbers, root_folder=ro
     try
         readdir(participant_folder)
     catch e
-        println(out,"No data for $participant for this session: $session")
-        println(out,e)
+        @error "No data for this participant found in this session" participant session error=e
         return DataFrame()
     end
     subfolders = [f for f in readdir(participant_folder) if isdir(joinpath(participant_folder, f))]
@@ -658,8 +657,7 @@ function get_surface_matrices(participant, session, framenumbers, root_folder=ro
     try
         data, names = TextParse.csvread(joinpath(surface_folder, "$data_type"*"_face.csv"))
     catch e
-        println(out,"No surface coordinates data for $participant for this session: $session")
-        println(out,joinpath(surface_folder, "$data_type"*"_face.csv"))
+        @error "No surface coordinates for this participant found in this session" participant=participant session=session surface_file=joinpath(surface_folder, data_type * "_face.csv") error=e
         return DataFrame()
     end
     surface_coordinates = DataFrame(
@@ -922,7 +920,7 @@ function get_all_surfaces_for_a_frame(frame_number, set_surface_positions; out=s
     surface_coords = Dict()
     for surface in eachrow(frame_surfaces)
         #surface = eachrow(frame_surfaces)[1]
-        println(out,"checking surface: $(surface.surface)")
+        @info "Checking surface $(surface.surface) ..."
         # Extract the transformation matrix
         transform_matrix=parse_transformation_matrix(surface.surf_to_dist_img_trans)
         corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
@@ -945,8 +943,7 @@ function plot_surfaces(surface_coordinates, img_width, img_height, background_im
     # Plot each surface
     for surface in surface_coordinates
         surface_name = surface[1]
-        println(out,"Plotting surface: $surface_name, with corners: ")
-        println(out,surface[2])
+        @info "Plotting surface: $surface_name, with corners:" corners=surface[2]
         surface_corners = surface[2]
         # Extracting the first two elements from each 4-element tuple and converting to Point2f
         preprocessed_coords = [(row[1], row[2])  for row in eachrow(surface_corners)]
