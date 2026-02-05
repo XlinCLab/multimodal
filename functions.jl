@@ -802,8 +802,42 @@ function get_surfaces_for_all_objects(yolo_coordinates, surface_positions, frame
     return all_frame_objects
 end
 
-# TODO this function should be optimized later, use the least distance to the surface center
-# TODO this function is work in progress
+
+euclidean_dist_2d(p1, p2) = (p1[1] - p2[1])^2 + (p1[2] - p2[2])^2
+
+
+function find_nearest_surface(frame_surfaces, reference_point)
+    nearest_surface = nothing
+    best_dist = Inf
+    corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
+
+    for surface in eachrow(frame_surfaces)
+        surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
+        surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+        min_x = minimum(surface_corners[:, 1])
+        max_x = maximum(surface_corners[:, 1])
+        min_y = minimum(surface_corners[:, 2])
+        max_y = maximum(surface_corners[:, 2])
+
+        if reference_point[1] ≥ min_x && reference_point[1] ≤ max_x &&
+           reference_point[2] ≥ min_y && reference_point[2] ≤ max_y
+
+            # Get distance from object to surface center
+            surface_center = transform_surface_to_image_coordinates(0.5, 0.5, surf_to_img_trans)
+            dist = euclidean_dist_2d(reference_point, surface_center)
+
+            # Record the best (= smallest) distance
+            if dist < best_dist
+                best_dist = dist
+                nearest_surface = surface
+            end
+        end
+    end
+
+    return nearest_surface
+end
+
+
 function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width, img_height; out=stdout)
     logger = out === stdout ?
         ConsoleLogger(out, Logging.Info) :
@@ -816,59 +850,14 @@ function get_surface_for_frame_objects(frame_objects, frame_surfaces, img_width,
         frame_objects.surface_number = fill("outside all", nrow(frame_objects))
         for object in eachrow(frame_objects)
             object.x, object.y, object.w, object.h = transform_yolo_to_pixels(object.x, object.y, object.w, object.h,img_width, img_height)
+            object_centerpoint = (object.x, object.y)
             @debug object=object.object x=object.x y=object.y
-            for surface in eachrow(frame_surfaces)
-                # Extract the transformation matrix
-                @debug "Extracting transformation matrix from surface..." surface=surface.surface
-                surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
-                surface_corners = transform_surface_corners(corners, surf_to_img_trans)
-                surface_center = transform_surface_to_image_coordinates(center[1], center[2], surf_to_img_trans)
-                @debug "Surface <$(surface.surface)> center:" x=surface_center[1] y=surface_center[2]
-                # Check if object is inside the surface
-                min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
-                if object.x >= min_x && object.x <= max_x && object.y >= min_y && object.y <=max_y
-                    @info "Object <$(object.object)> centerpoint detected on surface <$(surface.surface)>" min_x max_x min_y max_y object.x object.y
-                    object.surface_number = surface.surface
-                    continue
-                end
-            end
-
-            # If an object's centerpoint is outside the bounds of all surfaces, try object's lower center
-            if object.surface_number == "outside all"
-                @warn "Object <$(object.object)> center is outside all surfaces; trying object's lower center" object_x=object.x object_y=object.y object_height=object.h new_object_y=(object.y + object.h/2)
-                for surface in eachrow(frame_surfaces)
-                    object_y = object.y + object.h/2
-                    surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
-                    surface_corners = transform_surface_corners(corners, surf_to_img_trans)
-                    min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
-                    @debug "Surface <$(surface.surface)> limits:" surface_corners min_x, max_x, min_y, max_y
-                    if object.x >= min_x && object.x <= max_x && object_y >= min_y && object_y <=max_y
-                        @info "Object <$(object.object)> lower centerpoint detected on surface <$(surface.surface)>" min_x max_x min_y max_y object.x object_y
-                        object.surface_number = surface.surface
-                        continue
-                    end
-                end
-            end
-            
-            # If lower center does not work, try upper center
-            if object.surface_number == "outside all"
-                @warn "Object <$(object.object)> center is outside all surfaces; trying object's upper center" object_x=object.x object_y=object.y object_height=object.h new_object_y=(object.y - object.h/2)
-                for surface in eachrow(frame_surfaces)
-                    object_y = object.y - object.h/2
-                    surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
-                    surface_corners = transform_surface_corners(corners, surf_to_img_trans)
-                    min_x, max_x, min_y, max_y = minimum(surface_corners[:, 1]), maximum(surface_corners[:, 1]), minimum(surface_corners[:, 2]), maximum(surface_corners[:, 2])
-                    if object.x > min_x && object.x < max_x && object_y > min_y && object_y < max_y
-                        @info "Object <$(object.object)> upper centerpoint detected on surface <$(surface.surface)>" min_x max_x min_y max_y object.x object_y
-                        object.surface_number = surface.surface
-                        continue
-                    end
-                end
-            end
-            
-            # Log error if still not found on any surface
-            if object.surface_number == "outside all"
-                @error "Object <$(object.object)> center is still not found on any surfaces. Further handling may need to be implemented."
+            nearest_surface = find_nearest_surface(frame_surfaces, object_centerpoint)
+            if !isnothing(nearest_surface)
+                @info "Object <$(object.object)> centerpoint detected on surface <$(nearest_surface.surface)>" object.x object.y
+                object.surface_number = nearest_surface.surface
+            else
+                @error "Object <$(object.object)> center is not found on any surfaces. Further handling may need to be implemented." object.x object.y
             end
         end
     end
