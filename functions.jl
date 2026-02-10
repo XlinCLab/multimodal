@@ -807,34 +807,45 @@ euclidean_dist_2d(p1, p2) = (p1[1] - p2[1])^2 + (p1[2] - p2[2])^2
 
 
 function find_nearest_surface(frame_surfaces, reference_point)
-    nearest_surface = nothing
-    best_dist = Inf
     corners = [0.0 0.0; 1.0 0.0; 1.0 1.0; 0.0 1.0]
+
+    best_inside = nothing
+    best_inside_dist = Inf
+
+    best_any = nothing
+    best_any_dist = Inf
 
     for surface in eachrow(frame_surfaces)
         surf_to_img_trans = parse_transformation_matrix(surface.surf_to_dist_img_trans)
         surface_corners = transform_surface_corners(corners, surf_to_img_trans)
+
         min_x = minimum(surface_corners[:, 1])
         max_x = maximum(surface_corners[:, 1])
         min_y = minimum(surface_corners[:, 2])
         max_y = maximum(surface_corners[:, 2])
 
-        if reference_point[1] ≥ min_x && reference_point[1] ≤ max_x &&
-           reference_point[2] ≥ min_y && reference_point[2] ≤ max_y
+        surface_center = transform_surface_to_image_coordinates(0.5, 0.5, surf_to_img_trans)
 
-            # Get distance from object to surface center
-            surface_center = transform_surface_to_image_coordinates(0.5, 0.5, surf_to_img_trans)
-            dist = euclidean_dist_2d(reference_point, surface_center)
+        dist = euclidean_dist_2d(reference_point, surface_center)
 
-            # Record the best (= smallest) distance
-            if dist < best_dist
-                best_dist = dist
-                nearest_surface = surface
+        # Track nearest surface overall
+        if dist < best_any_dist
+            best_any_dist = dist
+            best_any = surface
+        end
+
+        # Prefer surfaces containing the point
+        if min_x ≤ reference_point[1] ≤ max_x &&
+           min_y ≤ reference_point[2] ≤ max_y
+
+            if dist < best_inside_dist
+                best_inside_dist = dist
+                best_inside = surface
             end
         end
     end
 
-    return nearest_surface
+    return isnothing(best_inside) ? best_any : best_inside
 end
 
 
