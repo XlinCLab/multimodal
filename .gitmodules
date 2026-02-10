@@ -1,5 +1,4 @@
 [submodule "multimodal-yolo"]
 	path = multimodal-yolo
 	url = https://github.com/XlinCLab/multimodal-yolo.git
-	branch = update2025
 
