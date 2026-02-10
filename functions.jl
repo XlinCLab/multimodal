@@ -909,12 +909,7 @@ end
 
 #additional utilies to plot surfaces and see if something is wrong 
 #note: CairoMakie flips the background image for whatever reason
-#fix image sizes in this function
-function get_all_surfaces_for_a_frame(frame_number, set_surface_positions; out=stdout)
-    # TODO this function is work in progress
-    img_width = 1024
-    img_height = 768
-
+function get_all_surfaces_for_a_frame(frame_number, set_surface_positions, img_width, img_height; out=stdout)
     # Select the relevant row based on world_index (frame number)
     frame_surfaces = set_surface_positions[set_surface_positions.world_index .== frame_number, :]
     surface_coords = Dict()
