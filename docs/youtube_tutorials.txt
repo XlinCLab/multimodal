@@ -1,0 +1,11 @@
+In the following video tutorials, Varya Magomedova (the original author of these scripts) provides an overview of various components of the multimodal pipeline.
+Note that some of the details on running are now slightly outdated after the 2026 code revision but the overall structure and logic remains largely the same.
+
+- Intro to the DGAME 3 data pipeline walkthrough
+    https://www.youtube.com/watch?v=iXIrZOu73U8
+
+- Julia pipeline walkthrough
+    https://www.youtube.com/watch?v=2Eq6W8WXNHw&feature=youtu.be
+
+- Walkthrough for the multimodal-yolo object recognition module
+    https://www.youtube.com/watch?v=bWNy26O7Sow

@@ -67,9 +67,9 @@ DGAME data: Root Directory with all the files
 	•	world.intrinsics: Intrinsic parameters for the world camera.
 	•	world.mp4, world_lookup.npy, world_timestamps.npy: World camera data, lookup, and timestamps.
 
-	•	DGAME3_DyadNumber_02/: 02 is the Director’d data, it is organized the same way as for the matcher, therefore not further presented here.
+	•	DGAME3_DyadNumber_02/: 02 is the Director's data, it is organized the same way as for the matcher, therefore not further presented here.
 
 	•	xdf/: Directory for XDF (Extensible Data Format) files.
 	•	    12/: Participant ID.
-	•	        Director/: somebidy called it Director, but in fact in is everything. I kept the structure as it was established.
+	•	        Director/: somebody called it Director, but in fact in is everything. I kept the structure as it was established.
 	•	                dgame3_12_Director_11.xdf: XDF file for the dyad. Every folder must have at least four files - one for each session.
