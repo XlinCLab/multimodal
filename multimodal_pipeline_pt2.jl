@@ -13,6 +13,8 @@ end
 
 function multimodal_pipeline_pt2(args)
     outdir = abspath(args["outdir"])
+    log_dir = joinpath(outdir, "logs")
+    mkpath(log_dir)
     frames_csv = abspath(args["frames_csv"])
     
     # Verify that the pretrained YOLO model and its component files exist
@@ -51,7 +53,7 @@ function multimodal_pipeline_pt2(args)
     @info "YOLO model: $yolo_model_path"
     run(`sed -i "s|<youryolomodel>:|$(yolo_model_path):|g" $(yolo_detect_docker_compose)`)
     # Make a copy of this docker-compose and save in log directory
-    yolo_log_dir = joinpath(outdir, "logs", "yolo")
+    yolo_log_dir = joinpath(log_dir, "yolo")
     mkpath(yolo_log_dir)
     yolo_detect_docker_compose_log = joinpath(yolo_log_dir, docker_compose_filename)
     cp(yolo_detect_docker_compose, yolo_detect_docker_compose_log; force=true)
@@ -65,8 +67,9 @@ function multimodal_pipeline_pt2(args)
     @info "Video frame extraction completed."
     
     # Run YOLO computer vision object detection
-    @info "Running YOLO computer vision object detection..."
-    yolo_docker_cmd = `docker compose -f $(yolo_detect_docker_compose) up`
+    log_file = joinpath(yolo_log_dir, "yolo_computer_vision_object_detection.log")
+    @info "Running YOLO computer vision object detection...\nLog file: $log_file"
+    yolo_docker_cmd = `bash -c "docker compose -f $yolo_detect_docker_compose up > $log_file 2>&1"`
     run(yolo_docker_cmd)
     @info "YOLO computer vision object detection completed."
 
